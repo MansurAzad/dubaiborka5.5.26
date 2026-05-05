@@ -509,6 +509,8 @@ const SteadfastCourier = () => {
           </div>
         </div>
 
+        <AutomationCard />
+
         <Card>
           <CardHeader>
             <CardTitle>শিপমেন্ট পাইপলাইন</CardTitle>
