@@ -4,7 +4,6 @@
   "installCommand": "bun install",
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
-  "ignoreCommand": "exit 1",
   "git": {
     "deploymentEnabled": true
   },
@@ -13,15 +12,15 @@
     "autoJobCancelation": true
   },
   "env": {
-    "VITE_SUPABASE_URL": "https://kfmorgwpyqbyvkernkkk.supabase.co",
-    "VITE_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmbW9yZ3dweXFieXZrZXJua2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDk5MzYsImV4cCI6MjA4ODI4NTkzNn0.3FXYr6_3xszUR6Eqtq9WhTTmRxTLIxm02NCBvbP6PHo",
-    "VITE_SUPABASE_PROJECT_ID": "kfmorgwpyqbyvkernkkk"
+    "VITE_SUPABASE_URL": "https://izeabmhtxtrelfqgkuua.supabase.co",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6ZWFibWh0eHRyZWxmcWdrdXVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjMzMzksImV4cCI6MjA5MzUzOTMzOX0.ksgeJhbbDI0AsnR9IaP_BjurbGHHODuHAXf4AgUWI0Q",
+    "VITE_SUPABASE_PROJECT_ID": "izeabmhtxtrelfqgkuua"
   },
   "build": {
     "env": {
-      "VITE_SUPABASE_URL": "https://kfmorgwpyqbyvkernkkk.supabase.co",
-      "VITE_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmbW9yZ3dweXFieXZrZXJua2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDk5MzYsImV4cCI6MjA4ODI4NTkzNn0.3FXYr6_3xszUR6Eqtq9WhTTmRxTLIxm02NCBvbP6PHo",
-      "VITE_SUPABASE_PROJECT_ID": "kfmorgwpyqbyvkernkkk"
+      "VITE_SUPABASE_URL": "https://izeabmhtxtrelfqgkuua.supabase.co",
+      "VITE_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6ZWFibWh0eHRyZWxmcWdrdXVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjMzMzksImV4cCI6MjA5MzUzOTMzOX0.ksgeJhbbDI0AsnR9IaP_BjurbGHHODuHAXf4AgUWI0Q",
+      "VITE_SUPABASE_PROJECT_ID": "izeabmhtxtrelfqgkuua"
     }
   },
   "rewrites": [
