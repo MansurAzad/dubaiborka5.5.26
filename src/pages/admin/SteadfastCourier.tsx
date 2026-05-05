@@ -78,7 +78,106 @@ const statusBadge = (s: string | null) => {
   return <Badge variant={map[s] || "outline"}>{s}</Badge>;
 };
 
-const SteadfastCourier = () => {
+const AutomationCard = () => {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: rows } = useQuery({
+    queryKey: ["courier-automation-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("key,value")
+        .in("key", ["courier_auto_approve", "courier_auto_submit", "courier_webhook_secret"]);
+      return data || [];
+    },
+  });
+  const get = (k: string) => rows?.find((r) => r.key === k)?.value as any;
+  const autoApprove = !!get("courier_auto_approve")?.enabled;
+  const autoSubmit = !!get("courier_auto_submit")?.enabled;
+  const webhookSecret = get("courier_webhook_secret")?.secret as string | undefined;
+  const projectRef = "izeabmhtxtrelfqgkuua";
+  const webhookUrl = webhookSecret
+    ? `https://${projectRef}.supabase.co/functions/v1/steadfast-webhook?secret=${webhookSecret}`
+    : "";
+
+  const setFlag = async (key: string, enabled: boolean) => {
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({ key, value: { enabled }, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) {
+      toast({ title: "ব্যর্থ", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "✓ আপডেট হয়েছে", description: `${key} = ${enabled ? "ON" : "OFF"}` });
+    qc.invalidateQueries({ queryKey: ["courier-automation-settings"] });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Zap className="w-5 h-5 text-primary" /> অটোমেশন কন্ট্রোল
+        </CardTitle>
+        <CardDescription>
+          Order confirmed → শিপমেন্ট তৈরি → Steadfast সাবমিট → স্ট্যাটাস সিঙ্ক — সম্পূর্ণ ফ্লো অটোমেট করুন।
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-lg border">
+          <div>
+            <Label className="text-base">Auto Approve</Label>
+            <p className="text-xs text-muted-foreground">
+              নতুন কনফার্মড অর্ডার সরাসরি admin-approved হিসেবে চিহ্নিত হবে।
+            </p>
+          </div>
+          <Switch checked={autoApprove} onCheckedChange={(v) => setFlag("courier_auto_approve", v)} />
+        </div>
+        <div className="flex items-center justify-between p-3 rounded-lg border">
+          <div>
+            <Label className="text-base">Auto Submit to Steadfast</Label>
+            <p className="text-xs text-muted-foreground">
+              Auto Approve হলে সাথে সাথেই Steadfast-এ জমা হবে। ভুল রোধে toggle off রাখুন।
+            </p>
+          </div>
+          <Switch
+            checked={autoSubmit}
+            disabled={!autoApprove}
+            onCheckedChange={(v) => setFlag("courier_auto_submit", v)}
+          />
+        </div>
+        {!autoApprove && autoSubmit === false && (
+          <Alert>
+            <AlertDescription className="text-xs">
+              Auto Submit ব্যবহার করতে আগে Auto Approve চালু করুন।
+            </AlertDescription>
+          </Alert>
+        )}
+        {webhookUrl && (
+          <div className="space-y-2 p-3 rounded-lg border bg-muted/40">
+            <Label className="text-sm">Steadfast Webhook URL</Label>
+            <p className="text-xs text-muted-foreground">
+              এই URL টি Steadfast portal-এর webhook সেটিংসে পেস্ট করুন। প্রতিটি স্ট্যাটাস আপডেট সরাসরি এখানে আসবে।
+            </p>
+            <div className="flex gap-2">
+              <Input value={webhookUrl} readOnly className="font-mono text-xs" />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  navigator.clipboard.writeText(webhookUrl);
+                  toast({ title: "✓ কপি হয়েছে" });
+                }}
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
   const { toast } = useToast();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
