@@ -26,7 +26,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Truck, RefreshCw, CheckCircle, Send, Wallet, ExternalLink, Edit } from "lucide-react";
+import { Truck, RefreshCw, CheckCircle, Send, Wallet, ExternalLink, Edit, Zap, Copy } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
