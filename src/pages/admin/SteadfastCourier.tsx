@@ -178,6 +178,7 @@ const AutomationCard = () => {
   );
 };
 
+const SteadfastCourier = () => {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
