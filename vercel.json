@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "bun install",
+  "buildCommand": "bun run build",
+  "outputDirectory": "dist",
+  "ignoreCommand": "exit 1",
+  "git": {
+    "deploymentEnabled": true
+  },
+  "github": {
+    "autoAlias": true,
+    "autoJobCancelation": true
+  },
+  "env": {
+    "VITE_SUPABASE_URL": "https://kfmorgwpyqbyvkernkkk.supabase.co",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmbW9yZ3dweXFieXZrZXJua2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDk5MzYsImV4cCI6MjA4ODI4NTkzNn0.3FXYr6_3xszUR6Eqtq9WhTTmRxTLIxm02NCBvbP6PHo",
+    "VITE_SUPABASE_PROJECT_ID": "kfmorgwpyqbyvkernkkk"
+  },
+  "build": {
+    "env": {
+      "VITE_SUPABASE_URL": "https://kfmorgwpyqbyvkernkkk.supabase.co",
+      "VITE_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmbW9yZ3dweXFieXZrZXJua2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDk5MzYsImV4cCI6MjA4ODI4NTkzNn0.3FXYr6_3xszUR6Eqtq9WhTTmRxTLIxm02NCBvbP6PHo",
+      "VITE_SUPABASE_PROJECT_ID": "kfmorgwpyqbyvkernkkk"
+    }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}

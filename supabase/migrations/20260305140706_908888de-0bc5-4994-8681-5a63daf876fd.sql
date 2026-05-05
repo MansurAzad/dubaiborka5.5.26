@@ -1,0 +1,21 @@
+INSERT INTO site_content (section_key, title, subtitle, content, is_active, display_order) VALUES
+('announcement_bar', '🎉 Free Delivery on Orders Over ৳3000!', 'Limited time offer', NULL, true, 0),
+('hero_banner', 'Premium Dubai Collection', 'Discover Elegance in Every Thread', 'Shop the finest Abaya, Borka & Hijab collection imported from Dubai', true, 1),
+('flash_sale', '⚡ Flash Sale', 'Limited Time Deals', 'Up to 50% off on selected items', true, 2),
+('featured_categories', 'Shop by Category', 'Browse our curated collections', NULL, true, 3),
+('featured_products', 'Featured Products', 'Handpicked for you', 'Our most popular items chosen by customers', true, 4),
+('new_arrivals', 'New Arrivals', 'Just Landed', 'Fresh styles added to our collection', true, 5),
+('special_offer', 'Special Offer', 'Limited Time Only', 'Get 30% off on your first order', true, 6),
+('trending_products', 'Trending Now', 'Most Popular', 'See what everyone is loving', true, 7),
+('deal_of_the_day', 'Deal of the Day', 'Today''s Best Offer', 'Don''t miss out on today''s special deal', true, 8),
+('bundle_deals', 'Bundle & Save', 'Buy More, Save More', 'Exclusive combo offers', true, 9),
+('popular_categories', 'Popular Categories', 'Top Picks', NULL, true, 10),
+('customer_reviews', 'Customer Reviews', 'What Our Customers Say', NULL, true, 11),
+('trust_badges', 'Why Shop With Us', 'Your Trust, Our Priority', NULL, true, 12),
+('about_section', 'About Dubai Borka House', 'Your Premium Islamic Fashion Destination', 'We bring the finest Dubai-imported Abayas, Borkas, Hijabs and Kaftans to Bangladesh.', true, 13),
+('why_choose_us', 'Why Choose Us', 'Quality You Can Trust', NULL, true, 14),
+('video_showcase', 'Video Showcase', 'See Our Collection in Action', NULL, true, 15),
+('testimonials', 'Testimonials', 'Happy Customers', NULL, true, 16),
+('instagram_feed', 'Follow Us on Instagram', '@dubaiborkahousebd', NULL, true, 17),
+('newsletter', 'Stay Updated', 'Subscribe to our newsletter', 'Get exclusive offers and new arrival updates', true, 18)
+ON CONFLICT (section_key) DO NOTHING;

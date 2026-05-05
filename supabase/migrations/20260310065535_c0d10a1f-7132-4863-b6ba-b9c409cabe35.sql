@@ -1,0 +1,1 @@
+UPDATE product_variants SET price_adjustment = 0 WHERE id IN ('0e74ab2a-3686-4ade-89cb-542650a0f218', '6d319c38-87fa-4515-bfe6-251090100279');

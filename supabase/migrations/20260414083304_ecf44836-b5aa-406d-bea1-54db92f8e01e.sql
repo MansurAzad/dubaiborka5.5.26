@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Guest users can view guest orders" ON public.orders;

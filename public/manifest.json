@@ -1,0 +1,21 @@
+{
+  "name": "Dubai Borka House",
+  "short_name": "DBH",
+  "description": "Premium Bangladeshi fabric and clothing brand, bringing the finest Dubai-imported fashion to your doorstep.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#d4a574",
+  "icons": [
+    {
+      "src": "/favicon.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/favicon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
