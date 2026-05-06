@@ -1264,7 +1264,7 @@ serve(async (req) => {
       const c = typeof m?.content === "string" ? m.content : "";
       return /[0-9a-f]{8}-[0-9a-f]{4}/i.test(c) || /sale_price|product_id|product\s*:/i.test(c);
     });
-    if (!wantStream && isAmbiguousProductQuery(lastText) && !hasPriorProductContext) {
+    if (isAmbiguousProductQuery(lastText) && !hasPriorProductContext) {
       console.log(`[AMBIGUOUS] short-circuit: "${lastText}"`);
       const { data: featured } = await supabase
         .from("products")
