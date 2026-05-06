@@ -577,6 +577,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
       setMessages,
       setIsLoading,
       ttsSpeak: tts.speak,
+          onServiceStatus: setServiceStatus,
     });
   };
 
@@ -654,6 +655,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
           setMessages,
           setIsLoading,
           ttsSpeak: tts.speak,
+          onServiceStatus: setServiceStatus,
         });
       }, 0);
 
@@ -689,6 +691,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
           setMessages,
           setIsLoading,
           ttsSpeak: tts.speak,
+          onServiceStatus: setServiceStatus,
         });
       }, 0);
 
