@@ -50,6 +50,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_counter: {
+        Row: {
+          month: string
+          monthly_limit: number
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          month: string
+          monthly_limit?: number
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          month?: string
+          monthly_limit?: number
+          updated_at?: string
+          used_count?: number
+        }
+        Relationships: []
+      }
       back_in_stock_alerts: {
         Row: {
           created_at: string
@@ -1468,6 +1489,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_ai_usage: {
+        Args: never
+        Returns: {
+          month: string
+          monthly_limit: number
+          used_count: number
+        }[]
+      }
       has_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
@@ -1479,6 +1508,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_ai_usage: { Args: never; Returns: undefined }
       track_order_by_id: {
         Args: { order_id: string }
         Returns: {
