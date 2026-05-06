@@ -337,8 +337,13 @@ async function streamChat({
   const ct = resp.headers.get("content-type") || "";
   const isJson = ct.includes("application/json");
   if (!resp.ok || !resp.body || isJson) {
-    const data = await resp.json();
-    if (!resp.ok && data.error) throw new Error(data.error);
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok && (data as any).error) {
+      throw Object.assign(new Error((data as any).error), { status: resp.status });
+    }
+    if (!resp.ok) {
+      throw Object.assign(new Error(`HTTP ${resp.status}`), { status: resp.status });
+    }
     onMeta({
       products: data.products,
       orders: data.orders,
@@ -428,11 +433,13 @@ function triggerStreamedResponse({
   setMessages,
   setIsLoading,
   ttsSpeak,
+  onServiceStatus,
 }: {
   chatHistory: any[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setIsLoading: (v: boolean) => void;
   ttsSpeak: (text: string) => void;
+  onServiceStatus?: (status: "ok" | "credits_exhausted" | "rate_limited" | "down") => void;
 }) {
   const assistantId = (Date.now() + 1).toString();
   setIsLoading(true);
@@ -457,18 +464,27 @@ function triggerStreamedResponse({
       setMessages((prev) =>
         prev.map((m) => m.id === assistantId ? { ...m, isStreaming: false } : m)
       );
+      onServiceStatus?.("ok");
       if (fullContent) ttsSpeak(fullContent);
     },
-  }).catch((error) => {
+  }).catch((error: any) => {
     console.error("Chat error:", error);
-    // Specific error messages based on error type
+    const status = error?.status as number | undefined;
     let errorMsg = "দুঃখিত, একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।";
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
+    if (status === 402) {
+      errorMsg = "⚠️ AI সার্ভিসের ক্রেডিট শেষ হয়ে গেছে। মালিক টপ-আপ করলেই আবার চালু হবে।";
+      onServiceStatus?.("credits_exhausted");
+    } else if (status === 429 || error?.message?.includes("rate limit") || error?.message?.includes("429")) {
+      errorMsg = "অনেক বেশি মেসেজ পাঠানো হয়েছে। কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন। 🕐";
+      onServiceStatus?.("rate_limited");
+    } else if (error instanceof TypeError && error.message === "Failed to fetch") {
       errorMsg = "ইন্টারনেট সংযোগ নেই বা সার্ভারে সমস্যা। আপনার ইন্টারনেট চেক করে আবার চেষ্টা করুন। 🌐";
+      onServiceStatus?.("down");
     } else if (error?.message?.includes("timeout") || error?.name === "AbortError") {
       errorMsg = "সার্ভার থেকে উত্তর পেতে দেরি হচ্ছে। কিছুক্ষণ পর আবার চেষ্টা করুন। ⏳";
-    } else if (error?.message?.includes("rate limit") || error?.message?.includes("429")) {
-      errorMsg = "অনেক বেশি মেসেজ পাঠানো হয়েছে। কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন। 🕐";
+      onServiceStatus?.("down");
+    } else {
+      onServiceStatus?.("down");
     }
     setMessages((prev) => {
       const filtered = prev.filter(m => !m.isStreaming);
@@ -511,6 +527,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [serviceStatus, setServiceStatus] = useState<"ok" | "credits_exhausted" | "rate_limited" | "down">("ok");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToCart } = useCart();
@@ -560,6 +577,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
       setMessages,
       setIsLoading,
       ttsSpeak: tts.speak,
+          onServiceStatus: setServiceStatus,
     });
   };
 
@@ -637,6 +655,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
           setMessages,
           setIsLoading,
           ttsSpeak: tts.speak,
+          onServiceStatus: setServiceStatus,
         });
       }, 0);
 
@@ -672,6 +691,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
           setMessages,
           setIsLoading,
           ttsSpeak: tts.speak,
+          onServiceStatus: setServiceStatus,
         });
       }, 0);
 
@@ -742,6 +762,47 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
                 </button>
               </div>
             </div>
+
+            {/* Service Status Banner */}
+            {serviceStatus !== "ok" && (
+              <div className={cn(
+                "px-3 py-2 text-xs flex items-start gap-2 border-b shrink-0",
+                serviceStatus === "credits_exhausted"
+                  ? "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+                  : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-900 dark:text-red-200"
+              )}>
+                <span className="text-base leading-none">⚠️</span>
+                <div className="flex-1 space-y-1">
+                  {serviceStatus === "credits_exhausted" && (
+                    <>
+                      <p className="font-semibold">AI ক্রেডিট শেষ হয়ে গেছে</p>
+                      <p className="opacity-90">চ্যাটবট সাময়িকভাবে অফলাইন। সাইট মালিক টপ-আপ করলেই আবার চালু হবে।</p>
+                      <a
+                        href="https://lovable.dev/settings/workspace"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-medium transition-colors"
+                      >
+                        💳 টপ-আপ করুন
+                      </a>
+                    </>
+                  )}
+                  {serviceStatus === "rate_limited" && (
+                    <p className="font-semibold">অনেক রিকোয়েস্ট — কিছুক্ষণ পর আবার চেষ্টা করুন।</p>
+                  )}
+                  {serviceStatus === "down" && (
+                    <p className="font-semibold">সার্ভিসে সমস্যা — সংযোগ চেক করুন।</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setServiceStatus("ok")}
+                  className="opacity-60 hover:opacity-100"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
