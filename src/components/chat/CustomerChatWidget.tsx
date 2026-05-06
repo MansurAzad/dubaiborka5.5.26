@@ -337,8 +337,13 @@ async function streamChat({
   const ct = resp.headers.get("content-type") || "";
   const isJson = ct.includes("application/json");
   if (!resp.ok || !resp.body || isJson) {
-    const data = await resp.json();
-    if (!resp.ok && data.error) throw new Error(data.error);
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok && (data as any).error) {
+      throw Object.assign(new Error((data as any).error), { status: resp.status });
+    }
+    if (!resp.ok) {
+      throw Object.assign(new Error(`HTTP ${resp.status}`), { status: resp.status });
+    }
     onMeta({
       products: data.products,
       orders: data.orders,
