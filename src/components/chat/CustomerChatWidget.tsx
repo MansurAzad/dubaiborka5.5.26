@@ -528,6 +528,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [serviceStatus, setServiceStatus] = useState<"ok" | "credits_exhausted" | "rate_limited" | "down">("ok");
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToCart } = useCart();
