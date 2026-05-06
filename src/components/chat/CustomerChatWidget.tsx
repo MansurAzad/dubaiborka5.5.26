@@ -763,6 +763,47 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
               </div>
             </div>
 
+            {/* Service Status Banner */}
+            {serviceStatus !== "ok" && (
+              <div className={cn(
+                "px-3 py-2 text-xs flex items-start gap-2 border-b shrink-0",
+                serviceStatus === "credits_exhausted"
+                  ? "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+                  : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-900 dark:text-red-200"
+              )}>
+                <span className="text-base leading-none">⚠️</span>
+                <div className="flex-1 space-y-1">
+                  {serviceStatus === "credits_exhausted" && (
+                    <>
+                      <p className="font-semibold">AI ক্রেডিট শেষ হয়ে গেছে</p>
+                      <p className="opacity-90">চ্যাটবট সাময়িকভাবে অফলাইন। সাইট মালিক টপ-আপ করলেই আবার চালু হবে।</p>
+                      <a
+                        href="https://lovable.dev/settings/workspace"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-medium transition-colors"
+                      >
+                        💳 টপ-আপ করুন
+                      </a>
+                    </>
+                  )}
+                  {serviceStatus === "rate_limited" && (
+                    <p className="font-semibold">অনেক রিকোয়েস্ট — কিছুক্ষণ পর আবার চেষ্টা করুন।</p>
+                  )}
+                  {serviceStatus === "down" && (
+                    <p className="font-semibold">সার্ভিসে সমস্যা — সংযোগ চেক করুন।</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setServiceStatus("ok")}
+                  className="opacity-60 hover:opacity-100"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {messages.map((message) => (
