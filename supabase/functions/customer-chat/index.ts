@@ -1194,7 +1194,7 @@ serve(async (req) => {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, tools, temperature: 0.3, max_tokens: 4000 }),
+        body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, tools, temperature: 0.1, max_tokens: 4000 }),
       });
 
       if (!response.ok) {
@@ -1408,7 +1408,7 @@ serve(async (req) => {
             const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
               headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.3, max_tokens: 4000, stream: true }),
+              body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000, stream: true }),
             });
             if (!streamResponse.ok) throw new Error(`AI stream error: ${streamResponse.status}`);
             const reader = streamResponse.body!.getReader();
@@ -1434,7 +1434,7 @@ serve(async (req) => {
     const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.3, max_tokens: 4000 }),
+      body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000 }),
     });
 
     if (!finalResponse.ok) throw new Error(`AI error: ${finalResponse.status}`);
