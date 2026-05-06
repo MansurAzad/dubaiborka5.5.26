@@ -6,7 +6,6 @@
 
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL") || Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY =
@@ -35,14 +34,12 @@ async function chat(messages: any[]): Promise<any> {
 }
 
 async function pickProduct() {
-  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const { data } = await sb
-    .from("products")
-    .select("id, name, price, sale_price, image_url, video_url")
-    .gt("stock", 0)
-    .limit(1)
-    .maybeSingle();
-  return data;
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/products?select=id,name,price,sale_price,image_url,video_url&stock=gt.0&limit=1`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } },
+  );
+  const arr = await r.json();
+  return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
 }
 
 Deno.test("regression: price comes from DB, no hallucination", async () => {
