@@ -365,6 +365,48 @@ export type Database = {
           },
         ]
       }
+      chat_uploads: {
+        Row: {
+          created_at: string
+          deleted: boolean
+          deleted_at: string | null
+          expires_at: string
+          id: string
+          ip_address: string | null
+          mime_type: string | null
+          public_url: string
+          session_key: string | null
+          size_bytes: number | null
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          deleted?: boolean
+          deleted_at?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          mime_type?: string | null
+          public_url: string
+          session_key?: string | null
+          size_bytes?: number | null
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          deleted?: boolean
+          deleted_at?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          mime_type?: string | null
+          public_url?: string
+          session_key?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           code: string
