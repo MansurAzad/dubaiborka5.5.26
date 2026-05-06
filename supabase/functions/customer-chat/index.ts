@@ -1181,7 +1181,7 @@ serve(async (req) => {
     }
 
     const aiMessages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
-    const AI_MODEL = "google/gemini-2.5-flash";
+    const AI_MODEL = "google/gemini-2.5-pro";
 
     // Phase 1: Tool-calling loop (always non-streaming)
     let collectedProducts: any[] = [];
