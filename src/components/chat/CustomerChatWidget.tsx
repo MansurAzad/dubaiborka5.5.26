@@ -756,9 +756,24 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-xs sm:text-sm">সাপোর্ট এ কথা বলুন</h3>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse" />
                     <p className="text-[10px] sm:text-xs opacity-80">অনলাইন • ২৪/৭</p>
+                    {usage && (
+                      <span
+                        className={cn(
+                          "text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                          usage.used >= usage.limit
+                            ? "bg-red-500/30 text-white"
+                            : usage.used / usage.limit > 0.8
+                              ? "bg-amber-500/30 text-white"
+                              : "bg-primary-foreground/20"
+                        )}
+                        title={`এই মাসে AI ব্যবহার: ${usage.used}/${usage.limit}`}
+                      >
+                        ⚡ {usage.used}/{usage.limit}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
