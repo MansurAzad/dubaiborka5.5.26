@@ -21,6 +21,7 @@ interface Message {
   orderResult?: OrderResult;
   hasMoreProducts?: boolean;
   searchContext?: { category?: string; query?: string; offset?: number };
+  quickReplies?: { id: string; label: string; payload: string }[];
   timestamp: Date;
   isStreaming?: boolean;
 }
@@ -298,12 +299,19 @@ function compressImage(dataUrl: string, maxWidth = 800, quality = 0.7): Promise<
 }
 
 // ─── Streaming helper ────────────────────────────────────────
+interface QuickReply {
+  id: string;
+  label: string;
+  payload: string;
+}
+
 interface StreamMeta {
   products?: Product[];
   orders?: OrderInfo[];
   order_result?: OrderResult;
   has_more?: boolean;
   search_context?: { category?: string; query?: string; offset?: number };
+  quick_replies?: QuickReply[];
 }
 
 async function streamChat({
@@ -326,10 +334,19 @@ async function streamChat({
     body: JSON.stringify({ messages, stream: true }),
   });
 
-  if (!resp.ok || !resp.body) {
+  const ct = resp.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  if (!resp.ok || !resp.body || isJson) {
     const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    if (data.products) onMeta({ products: data.products, orders: data.orders, order_result: data.order_result, has_more: data.has_more, search_context: data.search_context });
+    if (!resp.ok && data.error) throw new Error(data.error);
+    onMeta({
+      products: data.products,
+      orders: data.orders,
+      order_result: data.order_result,
+      has_more: data.has_more,
+      search_context: data.search_context,
+      quick_replies: data.quick_replies,
+    });
     onDelta(data.message || "");
     onDone();
     return;
@@ -426,7 +443,7 @@ function triggerStreamedResponse({
     messages: chatHistory,
     onMeta: (meta) => {
       setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, products: meta.products, orders: meta.orders, orderResult: meta.order_result, hasMoreProducts: meta.has_more, searchContext: meta.search_context } : m)
+        prev.map((m) => m.id === assistantId ? { ...m, products: meta.products, orders: meta.orders, orderResult: meta.order_result, hasMoreProducts: meta.has_more, searchContext: meta.search_context, quickReplies: meta.quick_replies } : m)
       );
     },
     onDelta: (chunk) => {
@@ -517,8 +534,8 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
     if (voice.transcript) setInput(voice.transcript);
   }, [voice.transcript]);
 
-  const handleSend = async () => {
-    const messageText = input.trim();
+  const handleSend = async (overrideText?: string) => {
+    const messageText = (overrideText ?? input).trim();
     if (!messageText && !selectedImage) return;
     if (voice.isListening) voice.stopListening();
 
@@ -531,7 +548,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    if (overrideText === undefined) setInput("");
     voice.clearTranscript();
     setSelectedImage(null);
 
@@ -544,6 +561,10 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
       setIsLoading,
       ttsSpeak: tts.speak,
     });
+  };
+
+  const handleQuickReply = (payload: string) => {
+    handleSend(payload);
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -744,6 +765,22 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
                       </div>
                     )}
 
+                    {/* Quick Reply Chips (ambiguous product clarification) */}
+                    {message.quickReplies && message.quickReplies.length > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {message.quickReplies.map((qr) => (
+                          <button
+                            key={qr.id}
+                            onClick={() => handleQuickReply(qr.payload)}
+                            disabled={isLoading}
+                            className="text-xs px-3 py-1.5 bg-background hover:bg-primary hover:text-primary-foreground rounded-full border border-primary/40 text-primary font-medium transition-colors disabled:opacity-50"
+                          >
+                            {qr.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Order Cards */}
                     {message.orders && message.orders.length > 0 && (
                       <div className="mt-2.5 space-y-2">
@@ -845,7 +882,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
                   className="flex-1 h-9 sm:h-10 text-sm"
                   disabled={isLoading}
                 />
-                <Button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedImage)} size="icon" className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
+                <Button onClick={() => handleSend()} disabled={isLoading || (!input.trim() && !selectedImage)} size="icon" className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </Button>
               </div>

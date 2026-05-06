@@ -35,6 +35,47 @@ function isValidUUID(input: unknown): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input);
 }
 
+// Lightweight similarity (Dice coefficient on bigrams) — used for product-match confidence.
+function similarity(a: string, b: string): number {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  a = norm(a); b = norm(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return a === b ? 1 : 0;
+  const bigrams = (s: string) => {
+    const m = new Map<string, number>();
+    for (let i = 0; i < s.length - 1; i++) {
+      const g = s.slice(i, i + 2);
+      m.set(g, (m.get(g) || 0) + 1);
+    }
+    return m;
+  };
+  const A = bigrams(a), B = bigrams(b);
+  let inter = 0;
+  for (const [g, c] of A) if (B.has(g)) inter += Math.min(c, B.get(g)!);
+  return (2 * inter) / (a.length - 1 + b.length - 1);
+}
+
+// Detect ambiguous product reference ("show this", "price?") with no concrete product context.
+function isAmbiguousProductQuery(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase().trim();
+  if (t.length > 80) return false; // long messages usually contain context
+  // Words that indicate a specific product is named (category names, brand-ish nouns)
+  const namedProduct = /(ফারাশা|কোট কলার|কালারিং|নিদা|জার্সি|শিফন|সিল্ক|abaya zoom|stone|premium|deluxe)/i;
+  if (namedProduct.test(t)) return false;
+  const patterns = [
+    /এই.{0,15}(দেখান|দেখাও|দেখাবেন|দেখতে চাই|পাঠান|দিন|দাও)/,
+    /^দাম\s*(কত|কতো|জানতে)?\s*\??$/,
+    /(এর|এটার|এটির|এই.{0,5})\s*দাম\s*(কত|কতো)?\??/,
+    /^(এটা|এটি|এই টা|এই টি)\s*কত\??$/,
+    /^(price|show)\s*(this|me|product|it)?\??$/i,
+    /^(ছবি|ভিডিও)\s*(দেখান|দেখাও|দিন|দাও|পাঠান)\s*\??$/,
+    /^(স্টক|stock)\s*(আছে|আছে কি|কি)?\??$/,
+  ];
+  return patterns.some((re) => re.test(t));
+}
+
 // Image URL normalizer — ensure absolute URLs for product images
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SITE_ORIGIN = "https://dubaiborkaghar.lovable.app";
@@ -291,6 +332,7 @@ const SYSTEM_PROMPT = `আপনি **এরশাদ হোসেন**, Dubai B
 ### ১.৬. অস্পষ্ট প্রোডাক্ট রেফারেন্স — আগে স্পষ্ট করুন:
 - কাস্টমার যদি কোনো নির্দিষ্ট প্রোডাক্ট সিলেক্ট/উল্লেখ না করেই বলেন: "এই প্রোডাক্টটি দেখান", "দাম কত?", "ছবি দেন", "স্টক আছে?" — এবং বর্তমান কথোপকথনে কোনো প্রোডাক্ট কনটেক্সট নেই (কোনো টুল রেজাল্ট/সিলেকশন নেই) → **কোনো অনুমান করবেন না।** ভদ্রভাবে জিজ্ঞেস করুন: "আপনি কোন প্রোডাক্টটির বিষয়ে জানতে চাচ্ছেন? নাম বা ছবি দিলে আমি সাথে সাথে দেখাচ্ছি 😊"
 - কাস্টমার যদি কোনো নাম/বিবরণ/ছবি দেন যা ডাটাবেজে আছে এবং আনুমানিক ৮০%+ মিল আছে (নাম-ম্যাচ বা find_matching_products রেজাল্টে শক্ত মিল) → তখনই get_product_details কল করে বিস্তারিত (ছবি, দাম, সাইজ, কালার, স্টক) দেখান।
+- **Confidence gating (বাধ্যতামূলক):** টুল রেজাল্টে \`confident_match: false\` বা \`confidence < 0.6\` থাকলে → কাস্টমারকে দাম/বিস্তারিত বলবেন না। বলুন: "আপনি কি এই প্রোডাক্টটির কথা বলছেন: [top match name]? নাকি অন্য কোনোটি?" এবং বিকল্পগুলো দেখান। \`confident_match: true\` হলেই কেবল দাম/details কনফার্ম করুন।
 - কাস্টমার ছবি পাঠালে → **সবসময় find_matching_products কল করুন।** শক্ত ম্যাচ পেলে ঐ প্রোডাক্টের get_product_details কল করে পূর্ণ বিবরণ + ছবি + ভিডিও দেখান। শক্ত ম্যাচ না পেলে কাছাকাছি বিকল্প দেখান এবং পার্থক্য ব্যাখ্যা করুন।
 
 ### ২. শিপিং চার্জ — সবসময় get_delivery_info টুল থেকে:
@@ -691,7 +733,15 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       const normalizedCategory = args?.category ? (categoryMap[sanitize(args.category, 50).toLowerCase().trim()] || sanitize(args.category, 50).toLowerCase().trim()) : undefined;
       // Normalize image URLs to absolute
       for (const p of data) { p.image_url = normalizeImageUrl(p.image_url); }
-      return { products: data, total_found: total, showing_from: offset + 1, showing_to: offset + data.length, has_more: hasMore, next_offset: hasMore ? offset + pageSize : null, search_context: { category: normalizedCategory || null, query: query || null, offset } };
+      const queryStr = sanitize(args?.query, 100);
+      const productsWithScore = data.map((p: any) => {
+        const score = queryStr ? Math.max(similarity(queryStr, p.name), similarity(queryStr, p.description || "")) : 1;
+        return { ...p, _match_score: Number(score.toFixed(2)) };
+      });
+      const top = productsWithScore[0];
+      const confidence = top?._match_score ?? 1;
+      console.log(`[CONFIDENCE] search_products query="${queryStr}" top="${top?.name}" score=${confidence}`);
+      return { products: productsWithScore, total_found: total, showing_from: offset + 1, showing_to: offset + data.length, has_more: hasMore, next_offset: hasMore ? offset + pageSize : null, search_context: { category: normalizedCategory || null, query: queryStr || null, offset }, confidence, confident_match: confidence >= 0.6 };
     }
     case "get_product_details": {
       let product;
@@ -717,6 +767,9 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       product.image_url = normalizeImageUrl(product.image_url);
       const normalizedImages = (images || []).map((img: any) => ({ ...img, image_url: normalizeImageUrl(img.image_url) }));
       
+      const matchScore = args?.product_name ? similarity(sanitize(args.product_name, 100), product.name) : 1;
+      const confident = args?.product_id ? true : matchScore >= 0.6;
+      console.log(`[CONFIDENCE] get_product_details name="${args?.product_name || ''}" matched="${product.name}" score=${matchScore.toFixed(2)} confident=${confident}`);
       return { 
         product: { 
           ...product, 
@@ -727,7 +780,9 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           review_count: reviews?.length || 0,
           available_sizes: availableSizes.length > 0 ? availableSizes : product.sizes || [],
           available_colors: availableColors.length > 0 ? availableColors : product.colors || [],
-        } 
+        },
+        confidence: Number(matchScore.toFixed(2)),
+        confident_match: confident,
       };
     }
     case "get_categories": {
@@ -1198,6 +1253,34 @@ serve(async (req) => {
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
       return new Response(JSON.stringify({ error: "Invalid request" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Ambiguous query short-circuit: if last user message is "এই প্রোডাক্ট দেখান / দাম কত?" with no
+    // prior product context in the conversation, return a quick-reply UI instead of guessing.
+    const lastUserMsg = [...messages].reverse().find((m: any) => m?.role === "user");
+    const lastText = typeof lastUserMsg?.content === "string"
+      ? lastUserMsg.content
+      : Array.isArray(lastUserMsg?.content)
+        ? lastUserMsg.content.map((c: any) => c?.text || "").join(" ")
+        : "";
+    const hasPriorProductContext = messages.some((m: any) => {
+      const c = typeof m?.content === "string" ? m.content : "";
+      return /[0-9a-f]{8}-[0-9a-f]{4}/i.test(c) || /sale_price|product_id|product\s*:/i.test(c);
+    });
+    if (isAmbiguousProductQuery(lastText) && !hasPriorProductContext) {
+      console.log(`[AMBIGUOUS] short-circuit: "${lastText}"`);
+      const { data: featured } = await supabase
+        .from("products")
+        .select("id, name, price, sale_price, image_url, category, stock")
+        .gt("stock", 0)
+        .order("featured", { ascending: false })
+        .limit(6);
+      const picks = (featured || []).map((p: any) => ({ ...p, image_url: normalizeImageUrl(p.image_url) }));
+      return new Response(JSON.stringify({
+        message: "আপু/ভাই, আপনি কোন প্রোডাক্টটির বিষয়ে জানতে চাচ্ছেন? নিচের যেকোনো একটিতে ট্যাপ করুন, অথবা প্রোডাক্টের নাম/ছবি পাঠান 😊",
+        quick_replies: picks.map((p: any) => ({ id: p.id, label: p.name, payload: `"${p.name}" এর বিস্তারিত দেখান` })),
+        products: picks,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const aiMessages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
