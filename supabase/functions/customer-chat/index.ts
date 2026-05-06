@@ -269,9 +269,20 @@ const SYSTEM_PROMPT = `আপনি **এরশাদ হোসেন**, Dubai B
 
 ### ১. দাম (Price) — ১০০% ডাটাবেজ থেকে:
 - প্রোডাক্টের দাম **শুধুমাত্র** search_products/get_product_details/find_matching_products টুলের রেজাল্ট থেকে নেবেন।
-- **কখনোই দাম অনুমান করবেন না, মুখস্থ বলবেন না, বা পরিবর্তন করবেন না।** একই কথোপকথনে দুইবার ভিন্ন দাম বললে = মারাত্মক ভুল।
-- দাম মনে না থাকলে আবার get_product_details কল করুন। কখনো "প্রায়", "আনুমানিক", "মনে হয়" বলবেন না।
+- **প্রতিবার দাম উল্লেখ করার আগে নিজেকে প্রশ্ন করুন:** "এই দামটি কি আমি এই কথোপকথনে কোনো টুল রেজাল্ট থেকে পেয়েছি?" না পেলে — get_product_details কল করুন, **কখনোই অনুমান বা মুখস্থ থেকে দাম বলবেন না।**
+- **একই প্রোডাক্টের জন্য দুইবার ভিন্ন দাম বলা = মারাত্মক ভুল।** যদি আগে ৬৫০০ বলে থাকেন, তাহলে পরে ২৫০০ বলতে পারবেন না (কুপন ছাড়া)।
+- কখনো "প্রায়", "আনুমানিক", "মনে হয়", "অফার প্রাইসে" বলবেন না — শুধু সঠিক DB দাম বলুন।
 - sale_price থাকলে সেটাই বলুন; না থাকলে price বলুন। ভ্যারিয়েন্টে price_adjustment থাকলে যোগ করুন।
+- ডিসকাউন্ট শুধুমাত্র validate_coupon টুল থেকে আসা ভ্যালিড কুপনের মাধ্যমে — নিজে থেকে কখনো দাম কমাবেন না।
+
+### ১.৫. প্রোডাক্ট ছবি/ভিডিও শেয়ার করা (অত্যন্ত গুরুত্বপূর্ণ):
+- কাস্টমার "ছবি দেখান", "ছবি পাঠান", "দেখতে চাই", "ভিডিও আছে?", "ভিডিও দেখান" বললে → **অবশ্যই get_product_details কল করুন** (যদি ইতিমধ্যে না করে থাকেন)
+- তারপর **markdown image syntax** দিয়ে ছবিগুলো শেয়ার করুন:
+  - মূল ছবি ফরম্যাট: exclamation-mark, bracket-এ alt-text, parens-এ image_url (যেমন standard markdown image)
+  - additional_images থেকে ১-৩টি অতিরিক্ত ছবি একইভাবে দিন
+  - video_url থাকলে: 🎥 ভিডিও দেখুন: এই লিংকে - তারপর video_url
+- কখনো বলবেন না "সরাসরি ছবি/ভিডিও পাঠাতে পারছি না" বা "লিংক দিতে পারছি না" — DB-তে ছবি থাকলে সবসময় শেয়ার করুন
+- ছবি/ভিডিও URL সবসময় absolute (https://) হতে হবে — টুল রেজাল্ট থেকে যা পান তাই হুবহু ব্যবহার করুন
 
 ### ২. শিপিং চার্জ — সবসময় get_delivery_info টুল থেকে:
 - কাস্টমার শহর/উপজেলা বললে → **অবশ্যই get_delivery_info({ city }) কল করুন।**
@@ -1181,7 +1192,7 @@ serve(async (req) => {
     }
 
     const aiMessages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
-    const AI_MODEL = "google/gemini-2.5-flash";
+    const AI_MODEL = "google/gemini-2.5-pro";
 
     // Phase 1: Tool-calling loop (always non-streaming)
     let collectedProducts: any[] = [];
@@ -1194,7 +1205,7 @@ serve(async (req) => {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, tools, temperature: 0.3, max_tokens: 4000 }),
+        body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, tools, temperature: 0.1, max_tokens: 4000 }),
       });
 
       if (!response.ok) {
@@ -1408,7 +1419,7 @@ serve(async (req) => {
             const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
               headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.3, max_tokens: 4000, stream: true }),
+              body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000, stream: true }),
             });
             if (!streamResponse.ok) throw new Error(`AI stream error: ${streamResponse.status}`);
             const reader = streamResponse.body!.getReader();
@@ -1434,7 +1445,7 @@ serve(async (req) => {
     const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.3, max_tokens: 4000 }),
+      body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000 }),
     });
 
     if (!finalResponse.ok) throw new Error(`AI error: ${finalResponse.status}`);
