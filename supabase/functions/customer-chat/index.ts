@@ -60,13 +60,16 @@ function similarity(a: string, b: string): number {
 function isAmbiguousProductQuery(text: string): boolean {
   if (!text) return false;
   const t = text.toLowerCase().trim();
-  if (t.length > 60) return false; // long messages usually contain context
+  if (t.length > 80) return false; // long messages usually contain context
+  // Words that indicate a specific product is named (category names, brand-ish nouns)
+  const namedProduct = /(ফারাশা|কোট কলার|কালারিং|নিদা|জার্সি|শিফন|সিল্ক|abaya zoom|stone|premium|deluxe)/i;
+  if (namedProduct.test(t)) return false;
   const patterns = [
-    /এই\s*(প্রোডাক্ট|টা|টি|বোরকা|আবায়া|হিজাব|কাফতান|কাপড়)?\s*(দেখান|দেখাও|দেখাবেন|দেখতে চাই)/,
+    /এই.{0,15}(দেখান|দেখাও|দেখাবেন|দেখতে চাই|পাঠান|দিন|দাও)/,
     /^দাম\s*(কত|কতো|জানতে)?\s*\??$/,
-    /(এর|এটার|এটির)\s*দাম\s*(কত|কতো)?\??/,
-    /(এটা|এটি|এই টা|এই টি)\s*কত\??$/,
-    /^(price|show)\s*(this|me|product)?\??$/i,
+    /(এর|এটার|এটির|এই.{0,5})\s*দাম\s*(কত|কতো)?\??/,
+    /^(এটা|এটি|এই টা|এই টি)\s*কত\??$/,
+    /^(price|show)\s*(this|me|product|it)?\??$/i,
     /^(ছবি|ভিডিও)\s*(দেখান|দেখাও|দিন|দাও|পাঠান)\s*\??$/,
     /^(স্টক|stock)\s*(আছে|আছে কি|কি)?\??$/,
   ];
