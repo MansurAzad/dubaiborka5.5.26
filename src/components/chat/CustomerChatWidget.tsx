@@ -866,7 +866,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
                   className="flex-1 h-9 sm:h-10 text-sm"
                   disabled={isLoading}
                 />
-                <Button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedImage)} size="icon" className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
+                <Button onClick={() => handleSend()} disabled={isLoading || (!input.trim() && !selectedImage)} size="icon" className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </Button>
               </div>
