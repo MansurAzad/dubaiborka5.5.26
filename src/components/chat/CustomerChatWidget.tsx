@@ -528,6 +528,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [serviceStatus, setServiceStatus] = useState<"ok" | "credits_exhausted" | "rate_limited" | "down">("ok");
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToCart } = useCart();
@@ -550,6 +551,20 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
   useEffect(() => {
     if (voice.transcript) setInput(voice.transcript);
   }, [voice.transcript]);
+
+  // Fetch AI usage when chat opens & after each completed message
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchUsage = async () => {
+      try {
+        const { data } = await (supabase as any).rpc("get_ai_usage");
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row) setUsage({ used: row.used_count ?? 0, limit: row.monthly_limit ?? 1000 });
+        else setUsage({ used: 0, limit: 1000 });
+      } catch (e) { console.error("usage fetch failed", e); }
+    };
+    fetchUsage();
+  }, [isOpen, isLoading]);
 
   const handleSend = async (overrideText?: string) => {
     const messageText = (overrideText ?? input).trim();
@@ -741,9 +756,24 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-xs sm:text-sm">সাপোর্ট এ কথা বলুন</h3>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse" />
                     <p className="text-[10px] sm:text-xs opacity-80">অনলাইন • ২৪/৭</p>
+                    {usage && (
+                      <span
+                        className={cn(
+                          "text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                          usage.used >= usage.limit
+                            ? "bg-red-500/30 text-white"
+                            : usage.used / usage.limit > 0.8
+                              ? "bg-amber-500/30 text-white"
+                              : "bg-primary-foreground/20"
+                        )}
+                        title={`এই মাসে AI ব্যবহার: ${usage.used}/${usage.limit}`}
+                      >
+                        ⚡ {usage.used}/{usage.limit}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
