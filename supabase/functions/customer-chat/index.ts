@@ -1251,6 +1251,34 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Ambiguous query short-circuit: if last user message is "এই প্রোডাক্ট দেখান / দাম কত?" with no
+    // prior product context in the conversation, return a quick-reply UI instead of guessing.
+    const lastUserMsg = [...messages].reverse().find((m: any) => m?.role === "user");
+    const lastText = typeof lastUserMsg?.content === "string"
+      ? lastUserMsg.content
+      : Array.isArray(lastUserMsg?.content)
+        ? lastUserMsg.content.map((c: any) => c?.text || "").join(" ")
+        : "";
+    const hasPriorProductContext = messages.some((m: any) => {
+      const c = typeof m?.content === "string" ? m.content : "";
+      return /[0-9a-f]{8}-[0-9a-f]{4}/i.test(c) || /sale_price|product_id|product\s*:/i.test(c);
+    });
+    if (!wantStream && isAmbiguousProductQuery(lastText) && !hasPriorProductContext) {
+      console.log(`[AMBIGUOUS] short-circuit: "${lastText}"`);
+      const { data: featured } = await supabase
+        .from("products")
+        .select("id, name, price, sale_price, image_url, category, stock")
+        .gt("stock", 0)
+        .order("featured", { ascending: false })
+        .limit(6);
+      const picks = (featured || []).map((p: any) => ({ ...p, image_url: normalizeImageUrl(p.image_url) }));
+      return new Response(JSON.stringify({
+        message: "আপু/ভাই, আপনি কোন প্রোডাক্টটির বিষয়ে জানতে চাচ্ছেন? নিচের যেকোনো একটিতে ট্যাপ করুন, অথবা প্রোডাক্টের নাম/ছবি পাঠান 😊",
+        quick_replies: picks.map((p: any) => ({ id: p.id, label: p.name, payload: `"${p.name}" এর বিস্তারিত দেখান` })),
+        products: picks,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const aiMessages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
     const AI_MODEL = "google/gemini-2.5-pro";
 
