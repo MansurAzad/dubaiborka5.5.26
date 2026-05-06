@@ -763,6 +763,9 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       product.image_url = normalizeImageUrl(product.image_url);
       const normalizedImages = (images || []).map((img: any) => ({ ...img, image_url: normalizeImageUrl(img.image_url) }));
       
+      const matchScore = args?.product_name ? similarity(sanitize(args.product_name, 100), product.name) : 1;
+      const confident = args?.product_id ? true : matchScore >= 0.6;
+      console.log(`[CONFIDENCE] get_product_details name="${args?.product_name || ''}" matched="${product.name}" score=${matchScore.toFixed(2)} confident=${confident}`);
       return { 
         product: { 
           ...product, 
@@ -773,7 +776,9 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           review_count: reviews?.length || 0,
           available_sizes: availableSizes.length > 0 ? availableSizes : product.sizes || [],
           available_colors: availableColors.length > 0 ? availableColors : product.colors || [],
-        } 
+        },
+        confidence: Number(matchScore.toFixed(2)),
+        confident_match: confident,
       };
     }
     case "get_categories": {
