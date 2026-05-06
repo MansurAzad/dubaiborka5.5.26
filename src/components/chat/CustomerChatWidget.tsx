@@ -21,6 +21,7 @@ interface Message {
   orderResult?: OrderResult;
   hasMoreProducts?: boolean;
   searchContext?: { category?: string; query?: string; offset?: number };
+  quickReplies?: { id: string; label: string; payload: string }[];
   timestamp: Date;
   isStreaming?: boolean;
 }
