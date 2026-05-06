@@ -765,6 +765,22 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
                       </div>
                     )}
 
+                    {/* Quick Reply Chips (ambiguous product clarification) */}
+                    {message.quickReplies && message.quickReplies.length > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {message.quickReplies.map((qr) => (
+                          <button
+                            key={qr.id}
+                            onClick={() => handleQuickReply(qr.payload)}
+                            disabled={isLoading}
+                            className="text-xs px-3 py-1.5 bg-background hover:bg-primary hover:text-primary-foreground rounded-full border border-primary/40 text-primary font-medium transition-colors disabled:opacity-50"
+                          >
+                            {qr.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Order Cards */}
                     {message.orders && message.orders.length > 0 && (
                       <div className="mt-2.5 space-y-2">
