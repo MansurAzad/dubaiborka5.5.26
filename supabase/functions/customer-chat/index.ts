@@ -729,7 +729,15 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       const normalizedCategory = args?.category ? (categoryMap[sanitize(args.category, 50).toLowerCase().trim()] || sanitize(args.category, 50).toLowerCase().trim()) : undefined;
       // Normalize image URLs to absolute
       for (const p of data) { p.image_url = normalizeImageUrl(p.image_url); }
-      return { products: data, total_found: total, showing_from: offset + 1, showing_to: offset + data.length, has_more: hasMore, next_offset: hasMore ? offset + pageSize : null, search_context: { category: normalizedCategory || null, query: query || null, offset } };
+      const queryStr = sanitize(args?.query, 100);
+      const productsWithScore = data.map((p: any) => {
+        const score = queryStr ? Math.max(similarity(queryStr, p.name), similarity(queryStr, p.description || "")) : 1;
+        return { ...p, _match_score: Number(score.toFixed(2)) };
+      });
+      const top = productsWithScore[0];
+      const confidence = top?._match_score ?? 1;
+      console.log(`[CONFIDENCE] search_products query="${queryStr}" top="${top?.name}" score=${confidence}`);
+      return { products: productsWithScore, total_found: total, showing_from: offset + 1, showing_to: offset + data.length, has_more: hasMore, next_offset: hasMore ? offset + pageSize : null, search_context: { category: normalizedCategory || null, query: queryStr || null, offset }, confidence, confident_match: confidence >= 0.6 };
     }
     case "get_product_details": {
       let product;
