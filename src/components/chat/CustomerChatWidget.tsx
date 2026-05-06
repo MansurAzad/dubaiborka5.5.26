@@ -534,8 +534,8 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
     if (voice.transcript) setInput(voice.transcript);
   }, [voice.transcript]);
 
-  const handleSend = async () => {
-    const messageText = input.trim();
+  const handleSend = async (overrideText?: string) => {
+    const messageText = (overrideText ?? input).trim();
     if (!messageText && !selectedImage) return;
     if (voice.isListening) voice.stopListening();
 
@@ -548,7 +548,7 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    if (overrideText === undefined) setInput("");
     voice.clearTranscript();
     setSelectedImage(null);
 
@@ -561,6 +561,10 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
       setIsLoading,
       ttsSpeak: tts.speak,
     });
+  };
+
+  const handleQuickReply = (payload: string) => {
+    handleSend(payload);
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
