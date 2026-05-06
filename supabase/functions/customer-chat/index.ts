@@ -1271,7 +1271,10 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Ambiguous query short-circuit: if last user message is "এই প্রোডাক্ট দেখান / দাম কত?" with no
+    // Track AI usage (best-effort, fire-and-forget)
+    supabase.rpc("increment_ai_usage").then(() => {}).catch((e) => console.error("usage increment failed", e));
+
+
     // prior product context in the conversation, return a quick-reply UI instead of guessing.
     const lastUserMsg = [...messages].reverse().find((m: any) => m?.role === "user");
     const lastText = typeof lastUserMsg?.content === "string"
