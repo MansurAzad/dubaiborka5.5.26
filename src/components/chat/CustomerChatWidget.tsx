@@ -576,15 +576,34 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
     }
     try {
       toast({ title: "ছবি আপলোড হচ্ছে..." });
-      const { uploadToCloudinary } = await import("@/lib/cloudinary");
-      const result = await uploadToCloudinary(file, "chat");
-      if (!result.success || !result.url) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-image-upload`,
+        {
+          method: "POST",
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: fd,
+        },
+      );
+      const result = await resp.json();
+      if (!resp.ok || !result.success || !result.url) {
         throw new Error(result.error || "Upload failed");
       }
       setSelectedImage(result.url);
-      toast({ title: "ছবি যোগ হয়েছে ✅" });
+      toast({
+        title: "ছবি যোগ হয়েছে ✅",
+        description: "এই ছবিটি ৫ মিনিটের মধ্যে স্বয়ংক্রিয়ভাবে মুছে যাবে",
+      });
     } catch (err: any) {
+      console.error("Chat image upload error:", err);
       toast({ title: "আপলোড ব্যর্থ", description: err.message, variant: "destructive" });
+    } finally {
+      // Allow re-uploading the same file
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
