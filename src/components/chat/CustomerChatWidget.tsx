@@ -552,6 +552,20 @@ const CustomerChatWidget = forwardRef<HTMLDivElement>((_, ref) => {
     if (voice.transcript) setInput(voice.transcript);
   }, [voice.transcript]);
 
+  // Fetch AI usage when chat opens & after each completed message
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchUsage = async () => {
+      try {
+        const { data } = await (supabase as any).rpc("get_ai_usage");
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row) setUsage({ used: row.used_count ?? 0, limit: row.monthly_limit ?? 1000 });
+        else setUsage({ used: 0, limit: 1000 });
+      } catch (e) { console.error("usage fetch failed", e); }
+    };
+    fetchUsage();
+  }, [isOpen, isLoading]);
+
   const handleSend = async (overrideText?: string) => {
     const messageText = (overrideText ?? input).trim();
     if (!messageText && !selectedImage) return;
