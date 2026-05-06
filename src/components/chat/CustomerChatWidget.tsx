@@ -443,7 +443,7 @@ function triggerStreamedResponse({
     messages: chatHistory,
     onMeta: (meta) => {
       setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, products: meta.products, orders: meta.orders, orderResult: meta.order_result, hasMoreProducts: meta.has_more, searchContext: meta.search_context } : m)
+        prev.map((m) => m.id === assistantId ? { ...m, products: meta.products, orders: meta.orders, orderResult: meta.order_result, hasMoreProducts: meta.has_more, searchContext: meta.search_context, quickReplies: meta.quick_replies } : m)
       );
     },
     onDelta: (chunk) => {
