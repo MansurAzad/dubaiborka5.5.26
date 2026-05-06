@@ -35,6 +35,44 @@ function isValidUUID(input: unknown): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input);
 }
 
+// Lightweight similarity (Dice coefficient on bigrams) — used for product-match confidence.
+function similarity(a: string, b: string): number {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  a = norm(a); b = norm(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return a === b ? 1 : 0;
+  const bigrams = (s: string) => {
+    const m = new Map<string, number>();
+    for (let i = 0; i < s.length - 1; i++) {
+      const g = s.slice(i, i + 2);
+      m.set(g, (m.get(g) || 0) + 1);
+    }
+    return m;
+  };
+  const A = bigrams(a), B = bigrams(b);
+  let inter = 0;
+  for (const [g, c] of A) if (B.has(g)) inter += Math.min(c, B.get(g)!);
+  return (2 * inter) / (a.length - 1 + b.length - 1);
+}
+
+// Detect ambiguous product reference ("show this", "price?") with no concrete product context.
+function isAmbiguousProductQuery(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase().trim();
+  if (t.length > 60) return false; // long messages usually contain context
+  const patterns = [
+    /এই\s*(প্রোডাক্ট|টা|টি|বোরকা|আবায়া|হিজাব|কাফতান|কাপড়)?\s*(দেখান|দেখাও|দেখাবেন|দেখতে চাই)/,
+    /^দাম\s*(কত|কতো|জানতে)?\s*\??$/,
+    /(এর|এটার|এটির)\s*দাম\s*(কত|কতো)?\??/,
+    /(এটা|এটি|এই টা|এই টি)\s*কত\??$/,
+    /^(price|show)\s*(this|me|product)?\??$/i,
+    /^(ছবি|ভিডিও)\s*(দেখান|দেখাও|দিন|দাও|পাঠান)\s*\??$/,
+    /^(স্টক|stock)\s*(আছে|আছে কি|কি)?\??$/,
+  ];
+  return patterns.some((re) => re.test(t));
+}
+
 // Image URL normalizer — ensure absolute URLs for product images
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SITE_ORIGIN = "https://dubaiborkaghar.lovable.app";
