@@ -298,12 +298,19 @@ function compressImage(dataUrl: string, maxWidth = 800, quality = 0.7): Promise<
 }
 
 // ─── Streaming helper ────────────────────────────────────────
+interface QuickReply {
+  id: string;
+  label: string;
+  payload: string;
+}
+
 interface StreamMeta {
   products?: Product[];
   orders?: OrderInfo[];
   order_result?: OrderResult;
   has_more?: boolean;
   search_context?: { category?: string; query?: string; offset?: number };
+  quick_replies?: QuickReply[];
 }
 
 async function streamChat({
@@ -326,10 +333,19 @@ async function streamChat({
     body: JSON.stringify({ messages, stream: true }),
   });
 
-  if (!resp.ok || !resp.body) {
+  const ct = resp.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  if (!resp.ok || !resp.body || isJson) {
     const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    if (data.products) onMeta({ products: data.products, orders: data.orders, order_result: data.order_result, has_more: data.has_more, search_context: data.search_context });
+    if (!resp.ok && data.error) throw new Error(data.error);
+    onMeta({
+      products: data.products,
+      orders: data.orders,
+      order_result: data.order_result,
+      has_more: data.has_more,
+      search_context: data.search_context,
+      quick_replies: data.quick_replies,
+    });
     onDelta(data.message || "");
     onDone();
     return;
