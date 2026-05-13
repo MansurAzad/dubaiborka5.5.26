@@ -80,6 +80,23 @@ const AdminLayout = memo(({ children }: AdminLayoutProps) => {
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const openSidebar = useCallback(() => setSidebarOpen(true), []);
 
+  // Auto-close sidebar on route change (mobile back/forward, programmatic nav)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Lock body scroll when mobile sidebar is open; restore on close/unmount
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+    if (isDesktop) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sidebarOpen]);
+
   const visibleNavItems = useMemo(() => {
     if (isAdmin) return navItems;
     return navItems.filter((item) => {
