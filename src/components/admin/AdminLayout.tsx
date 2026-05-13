@@ -123,15 +123,17 @@ const AdminLayout = memo(({ children }: AdminLayoutProps) => {
     <div className="min-h-screen flex bg-muted/30">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
           onClick={closeSidebar}
+          onTouchStart={closeSidebar}
+          aria-hidden="true"
         />
       )}
 
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col transition-transform duration-200 lg:translate-x-0 will-change-transform",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
+          sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         )}
       >
         <div className="p-6 border-b border-border flex items-center justify-between">
