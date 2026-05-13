@@ -135,6 +135,22 @@ const AdminLayout = memo(({ children }: AdminLayoutProps) => {
           "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
           sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         )}
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          (e.currentTarget as any)._swipe = { x: t.clientX, y: t.clientY };
+        }}
+        onTouchMove={(e) => {
+          const start = (e.currentTarget as any)._swipe;
+          if (!start) return;
+          const t = e.touches[0];
+          const dx = t.clientX - start.x;
+          const dy = Math.abs(t.clientY - start.y);
+          if (dx < -50 && dy < 60) {
+            (e.currentTarget as any)._swipe = null;
+            closeSidebar();
+          }
+        }}
+        onTouchEnd={(e) => { (e.currentTarget as any)._swipe = null; }}
       >
         <div className="p-6 border-b border-border flex items-center justify-between">
           <div>
