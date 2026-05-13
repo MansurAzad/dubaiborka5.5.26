@@ -123,15 +123,16 @@ const AdminLayout = memo(({ children }: AdminLayoutProps) => {
     <div className="min-h-screen flex bg-muted/30">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[70] lg:hidden animate-fade-in"
           onClick={closeSidebar}
+          onPointerDown={closeSidebar}
           aria-hidden="true"
         />
       )}
 
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 h-dvh w-[min(82vw,20rem)] max-w-[calc(100vw-2rem)] bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:h-auto lg:w-64 lg:max-w-none lg:translate-x-0 will-change-transform overflow-hidden",
+          "fixed lg:static inset-y-0 left-0 z-[80] h-dvh w-[min(82vw,20rem)] max-w-[calc(100vw-2rem)] bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:h-auto lg:w-64 lg:max-w-none lg:translate-x-0 will-change-transform overflow-hidden",
           sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         )}
         onTouchStart={(e) => {
