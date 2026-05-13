@@ -540,9 +540,8 @@
     transition-duration: 0.15s !important;
   }
 
-  /* Fix fixed elements stacking on mobile */
+  /* Keep fixed overlays responsive without overriding translate utilities */
   .fixed {
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 }
