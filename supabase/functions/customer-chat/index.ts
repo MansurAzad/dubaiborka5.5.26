@@ -1328,7 +1328,7 @@ serve(async (req) => {
     }
 
     const aiMessages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
-    const AI_MODEL = "google/gemini-2.5-pro";
+    const AI_MODEL = AI_MODEL_OVERRIDE || "google/gemini-2.5-pro";
 
     // Phase 1: Tool-calling loop (always non-streaming)
     let collectedProducts: any[] = [];
