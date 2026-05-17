@@ -1578,9 +1578,9 @@ serve(async (req) => {
     }
 
     // Non-streaming final call
-    const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const finalResponse = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: AI_HEADERS,
       body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000 }),
     });
 
