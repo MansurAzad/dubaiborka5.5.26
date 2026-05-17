@@ -1259,11 +1259,36 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Resolve AI provider: custom configured in admin settings, else Lovable AI Gateway
+    let AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    let AI_HEADERS: Record<string, string> = { "Content-Type": "application/json" };
+    let AI_MODEL_OVERRIDE: string | null = null;
+    try {
+      const { data: cfg } = await supabase.rpc("get_active_ai_provider", { _scope: "customer" });
+      const p = Array.isArray(cfg) ? cfg[0] : cfg;
+      if (p?.base_url && p?.api_key && p?.model) {
+        AI_URL = p.base_url.replace(/\/$/, "") + "/chat/completions";
+        AI_HEADERS = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${p.api_key}`,
+          ...(p.extra_headers && typeof p.extra_headers === "object" ? p.extra_headers : {}),
+        };
+        AI_MODEL_OVERRIDE = p.model;
+        console.log(`[AI] using custom provider: ${p.provider_name} (${p.model})`);
+      } else {
+        if (!LOVABLE_API_KEY) throw new Error("No AI provider configured");
+        AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+      }
+    } catch (e) {
+      console.error("provider lookup failed, falling back to Lovable", e);
+      if (!LOVABLE_API_KEY) throw new Error("No AI provider configured");
+      AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+    }
 
     const { messages, stream: wantStream, save_chat_history } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
