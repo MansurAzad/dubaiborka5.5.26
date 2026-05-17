@@ -1338,9 +1338,9 @@ serve(async (req) => {
     let lastSearchContext: { category?: string; query?: string; offset?: number } | null = null;
 
     for (let i = 0; i < 5; i++) {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: AI_HEADERS,
         body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, tools, temperature: 0.1, max_tokens: 4000 }),
       });
 
