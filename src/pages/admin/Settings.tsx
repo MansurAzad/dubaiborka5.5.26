@@ -337,6 +337,8 @@ import AIProviderSettings from "@/components/admin/AIProviderSettings";
 
          <RoleManagement />
 
+         <AIProviderSettings />
+
          {/* Cloudinary Migration */}
          <CloudinaryMigrationCard />
  
