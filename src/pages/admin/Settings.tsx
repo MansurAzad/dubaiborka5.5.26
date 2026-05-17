@@ -15,6 +15,7 @@ import { migrateToCloudinary } from "@/lib/cloudinary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import RoleManagement from "@/components/admin/RoleManagement";
+import AIProviderSettings from "@/components/admin/AIProviderSettings";
 
  const CloudinaryMigrationCard = () => {
    const [migrating, setMigrating] = useState(false);
@@ -335,6 +336,8 @@ import RoleManagement from "@/components/admin/RoleManagement";
           </Card>
 
          <RoleManagement />
+
+         <AIProviderSettings />
 
          {/* Cloudinary Migration */}
          <CloudinaryMigrationCard />

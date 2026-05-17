@@ -1259,11 +1259,36 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Resolve AI provider: custom configured in admin settings, else Lovable AI Gateway
+    let AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    let AI_HEADERS: Record<string, string> = { "Content-Type": "application/json" };
+    let AI_MODEL_OVERRIDE: string | null = null;
+    try {
+      const { data: cfg } = await supabase.rpc("get_active_ai_provider", { _scope: "customer" });
+      const p = Array.isArray(cfg) ? cfg[0] : cfg;
+      if (p?.base_url && p?.api_key && p?.model) {
+        AI_URL = p.base_url.replace(/\/$/, "") + "/chat/completions";
+        AI_HEADERS = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${p.api_key}`,
+          ...(p.extra_headers && typeof p.extra_headers === "object" ? p.extra_headers : {}),
+        };
+        AI_MODEL_OVERRIDE = p.model;
+        console.log(`[AI] using custom provider: ${p.provider_name} (${p.model})`);
+      } else {
+        if (!LOVABLE_API_KEY) throw new Error("No AI provider configured");
+        AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+      }
+    } catch (e) {
+      console.error("provider lookup failed, falling back to Lovable", e);
+      if (!LOVABLE_API_KEY) throw new Error("No AI provider configured");
+      AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+    }
 
     const { messages, stream: wantStream, save_chat_history } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
@@ -1303,7 +1328,7 @@ serve(async (req) => {
     }
 
     const aiMessages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
-    const AI_MODEL = "google/gemini-2.5-pro";
+    const AI_MODEL = AI_MODEL_OVERRIDE || "google/gemini-2.5-pro";
 
     // Phase 1: Tool-calling loop (always non-streaming)
     let collectedProducts: any[] = [];
@@ -1313,9 +1338,9 @@ serve(async (req) => {
     let lastSearchContext: { category?: string; query?: string; offset?: number } | null = null;
 
     for (let i = 0; i < 5; i++) {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: AI_HEADERS,
         body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, tools, temperature: 0.1, max_tokens: 4000 }),
       });
 
@@ -1527,9 +1552,9 @@ serve(async (req) => {
             await writer.write(encoder.encode(fakeChunk));
             await writer.write(encoder.encode("data: [DONE]\n\n"));
           } else {
-            const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            const streamResponse = await fetch(AI_URL, {
               method: "POST",
-              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+              headers: AI_HEADERS,
               body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000, stream: true }),
             });
             if (!streamResponse.ok) throw new Error(`AI stream error: ${streamResponse.status}`);
@@ -1553,9 +1578,9 @@ serve(async (req) => {
     }
 
     // Non-streaming final call
-    const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const finalResponse = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: AI_HEADERS,
       body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000 }),
     });
 

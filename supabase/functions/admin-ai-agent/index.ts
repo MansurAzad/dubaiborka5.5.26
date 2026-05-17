@@ -1202,11 +1202,42 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({ error: "Missing config" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Resolve AI provider (custom-configured or Lovable Gateway fallback)
+    let AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    let AI_HEADERS: Record<string, string> = { "Content-Type": "application/json" };
+    let AI_MODEL = "google/gemini-2.5-flash";
+    try {
+      const { data: cfg } = await supabaseAdmin.rpc("get_active_ai_provider", { _scope: "admin" });
+      const p = Array.isArray(cfg) ? cfg[0] : cfg;
+      if (p?.base_url && p?.api_key && p?.model) {
+        AI_URL = p.base_url.replace(/\/$/, "") + "/chat/completions";
+        AI_HEADERS = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${p.api_key}`,
+          ...(p.extra_headers && typeof p.extra_headers === "object" ? p.extra_headers : {}),
+        };
+        AI_MODEL = p.model;
+        console.log(`[AI] admin agent using custom provider: ${p.provider_name} (${p.model})`);
+      } else {
+        if (!LOVABLE_API_KEY) {
+          return new Response(JSON.stringify({ error: "No AI provider configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+      }
+    } catch (e) {
+      console.error("provider lookup failed", e);
+      if (!LOVABLE_API_KEY) {
+        return new Response(JSON.stringify({ error: "No AI provider configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+    }
+
     const allMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...(messages || [])];
 
     let currentMessages = allMessages;
@@ -1215,10 +1246,10 @@ serve(async (req) => {
   while (maxIterations-- > 0) {
       // Log iteration for debugging multi-task operations
       console.log(`AI iteration ${6 - maxIterations}, remaining: ${maxIterations}`);
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: currentMessages, tools, stream: false }),
+        headers: AI_HEADERS,
+        body: JSON.stringify({ model: AI_MODEL, messages: currentMessages, tools, stream: false }),
       });
 
       if (!response.ok) {

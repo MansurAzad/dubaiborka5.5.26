@@ -50,6 +50,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_provider_settings: {
+        Row: {
+          api_key: string
+          base_url: string
+          created_at: string
+          extra_headers: Json | null
+          id: string
+          is_active: boolean
+          model: string
+          notes: string | null
+          provider_name: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          base_url: string
+          created_at?: string
+          extra_headers?: Json | null
+          id?: string
+          is_active?: boolean
+          model: string
+          notes?: string | null
+          provider_name: string
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          base_url?: string
+          created_at?: string
+          extra_headers?: Json | null
+          id?: string
+          is_active?: boolean
+          model?: string
+          notes?: string | null
+          provider_name?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_usage_counter: {
         Row: {
           month: string
@@ -1489,6 +1531,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_active_ai_provider: {
+        Args: { _scope: string }
+        Returns: {
+          api_key: string
+          base_url: string
+          extra_headers: Json
+          model: string
+          provider_name: string
+        }[]
+      }
       get_ai_usage: {
         Args: never
         Returns: {
