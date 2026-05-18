@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, Trash2, Loader2, CheckCircle2, Pencil, Save, X } from "lucide-react";
+import {
+  Bot, Loader2, CheckCircle2, XCircle, Pencil, Save, X, Trash2, Play, Shield,
+} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,11 +23,18 @@ interface ProviderRow {
   scope: Scope;
   provider_name: string;
   base_url: string;
-  api_key: string;
+  api_key_masked: string;
   model: string;
   extra_headers: Record<string, string> | null;
   is_active: boolean;
+  is_fallback: boolean;
+  priority: number;
   notes: string | null;
+  last_test_at: string | null;
+  last_test_status: string | null;
+  last_test_latency_ms: number | null;
+  last_test_error: string | null;
+  last_test_sample: string | null;
 }
 
 const PRESETS = [
@@ -47,6 +56,8 @@ const emptyForm = {
   model: "",
   notes: "",
   is_active: true,
+  is_fallback: false,
+  priority: 100,
 };
 
 const AIProviderSettings = () => {
@@ -55,19 +66,19 @@ const AIProviderSettings = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const { data: providers, isLoading } = useQuery({
     queryKey: ["ai-providers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ai_provider_settings" as any)
-        .select("*")
-        .order("scope")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("list_ai_providers" as any);
       if (error) throw error;
       return (data || []) as unknown as ProviderRow[];
     },
   });
+
+  const customerProviders = (providers || []).filter((p) => p.scope === "customer");
+  const adminProviders = (providers || []).filter((p) => p.scope === "admin");
 
   const applyPreset = (name: string) => {
     const p = PRESETS.find((x) => x.name === name);
@@ -91,21 +102,31 @@ const AIProviderSettings = () => {
       scope: row.scope,
       provider_name: row.provider_name,
       base_url: row.base_url,
-      api_key: row.api_key,
+      api_key: "", // never prefill; blank = keep existing
       model: row.model,
       notes: row.notes || "",
       is_active: row.is_active,
+      is_fallback: row.is_fallback,
+      priority: row.priority,
     });
   };
 
   const handleSave = async () => {
-    if (!form.provider_name.trim() || !form.base_url.trim() || !form.api_key.trim() || !form.model.trim()) {
-      toast({ title: "অসম্পূর্ণ", description: "Provider name, Base URL, API key এবং Model সব দিতে হবে।", variant: "destructive" });
+    const isNew = !editingId;
+    if (!form.provider_name.trim() || !form.base_url.trim() || !form.model.trim() ||
+        (isNew && !form.api_key.trim())) {
+      toast({
+        title: "অসম্পূর্ণ",
+        description: isNew
+          ? "Provider name, Base URL, API key এবং Model সব দিতে হবে।"
+          : "Provider name, Base URL এবং Model দিতে হবে। (API key খালি রাখলে পুরোনোটাই থাকবে)",
+        variant: "destructive",
+      });
       return;
     }
     setSaving(true);
     try {
-      // If activating, deactivate other rows in same scope
+      // Only one ACTIVE per scope: deactivate others
       if (form.is_active) {
         await supabase
           .from("ai_provider_settings" as any)
@@ -113,15 +134,19 @@ const AIProviderSettings = () => {
           .eq("scope", form.scope)
           .neq("id", editingId || "00000000-0000-0000-0000-000000000000");
       }
-      const payload = {
+      const payload: any = {
         scope: form.scope,
         provider_name: form.provider_name.trim(),
         base_url: form.base_url.trim(),
-        api_key: form.api_key.trim(),
         model: form.model.trim(),
         notes: form.notes.trim() || null,
         is_active: form.is_active,
+        is_fallback: form.is_fallback,
+        priority: form.priority,
       };
+      // Only include api_key when adding or rotating
+      if (form.api_key.trim()) payload.api_key = form.api_key.trim();
+
       const res = editingId
         ? await supabase.from("ai_provider_settings" as any).update(payload).eq("id", editingId)
         : await supabase.from("ai_provider_settings" as any).insert(payload);
@@ -156,12 +181,99 @@ const AIProviderSettings = () => {
     }
   };
 
+  const toggleFallback = async (row: ProviderRow, next: boolean) => {
+    const { error } = await supabase
+      .from("ai_provider_settings" as any)
+      .update({ is_fallback: next })
+      .eq("id", row.id);
+    if (error) toast({ title: "ত্রুটি", description: error.message, variant: "destructive" });
+    qc.invalidateQueries({ queryKey: ["ai-providers"] });
+  };
+
   const remove = async (id: string) => {
     if (!confirm("Delete this provider configuration?")) return;
     const { error } = await supabase.from("ai_provider_settings" as any).delete().eq("id", id);
     if (error) toast({ title: "ত্রুটি", description: error.message, variant: "destructive" });
     qc.invalidateQueries({ queryKey: ["ai-providers"] });
   };
+
+  const testConnection = async (id: string) => {
+    setTestingId(id);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-provider-test", {
+        body: { id, prompt: "Reply with exactly: OK" },
+      });
+      if (error) throw error;
+      if (data?.ok) {
+        toast({
+          title: `✅ Connected (${data.latency_ms}ms)`,
+          description: data.sample ? `উত্তর: ${String(data.sample).slice(0, 120)}` : "সফল",
+        });
+      } else {
+        toast({
+          title: "❌ Connection failed",
+          description: data?.error || `HTTP ${data?.status}`,
+          variant: "destructive",
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["ai-providers"] });
+    } catch (e: any) {
+      toast({ title: "ত্রুটি", description: e.message, variant: "destructive" });
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const renderRow = (row: ProviderRow) => (
+    <div key={row.id} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium">{row.provider_name}</span>
+          {row.is_active && (
+            <Badge className="bg-green-600 hover:bg-green-700">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> Active
+            </Badge>
+          )}
+          {row.is_fallback && (
+            <Badge variant="outline">
+              <Shield className="w-3 h-3 mr-1" /> Fallback · p{row.priority}
+            </Badge>
+          )}
+          {row.last_test_status === "ok" && (
+            <Badge variant="secondary" className="text-green-700">
+              ✓ {row.last_test_latency_ms}ms
+            </Badge>
+          )}
+          {row.last_test_status === "fail" && (
+            <Badge variant="destructive" title={row.last_test_error || ""}>
+              <XCircle className="w-3 h-3 mr-1" /> Test failed
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground truncate">
+          {row.model} · {row.base_url} · key {row.api_key_masked}
+        </p>
+        {row.last_test_error && (
+          <p className="text-xs text-destructive mt-1 line-clamp-2">{row.last_test_error}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-1 shrink-0 flex-wrap">
+        <div className="flex items-center gap-1 mr-2">
+          <Label className="text-xs">Active</Label>
+          <Switch checked={row.is_active} onCheckedChange={(c) => toggleActive(row, c)} />
+        </div>
+        <div className="flex items-center gap-1 mr-2">
+          <Label className="text-xs">Fallback</Label>
+          <Switch checked={row.is_fallback} onCheckedChange={(c) => toggleFallback(row, c)} />
+        </div>
+        <Button variant="ghost" size="icon" onClick={() => testConnection(row.id)} disabled={testingId === row.id} title="Test connection">
+          {testingId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => startEdit(row)}><Pencil className="w-4 h-4" /></Button>
+        <Button variant="ghost" size="icon" onClick={() => remove(row.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+      </div>
+    </div>
+  );
 
   return (
     <Card>
@@ -171,8 +283,8 @@ const AIProviderSettings = () => {
           <CardTitle>Custom AI Providers</CardTitle>
         </div>
         <CardDescription>
-          DeepSeek, Kimi, Qwen, OpenCode Zen বা যেকোনো OpenAI-compatible API চ্যাটবট ও অ্যাডমিন এজেন্টে ব্যবহার করুন।
-          কোনো active provider না থাকলে ডিফল্ট Lovable AI ব্যবহৃত হবে।
+          Customer Chatbot ও Admin AI Agent — দুটোর জন্যই আলাদা Provider override সেট করুন।
+          API keys সার্ভারে এনক্রিপ্টেড থাকে; UI-তে শুধু শেষ ৪ ক্যারেক্টার দেখায়। কোনো scope-এ active provider না থাকলে Lovable AI ব্যবহৃত হবে।
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -228,20 +340,46 @@ const AIProviderSettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>API Key</Label>
-            <Input type="password" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} placeholder="sk-..." />
+            <Label>
+              API Key{" "}
+              {editingId && <span className="text-xs text-muted-foreground">(blank = keep existing)</span>}
+            </Label>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              value={form.api_key}
+              onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+              placeholder={editingId ? "•••• (leave blank to keep)" : "sk-..."}
+            />
           </div>
 
-          <div className="space-y-2">
-            <Label>Notes (optional)</Label>
-            <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          </div>
-
-          <div className="flex items-center justify-between">
+          <div className="grid md:grid-cols-2 gap-4">
             <div className="flex items-center gap-2">
               <Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} />
-              <Label>Set as active for this scope</Label>
+              <Label>Set as Active for this scope</Label>
             </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={form.is_fallback} onCheckedChange={(c) => setForm({ ...form, is_fallback: c })} />
+              <Label>Use as Fallback if active fails</Label>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Fallback priority (lower = tried first)</Label>
+              <Input
+                type="number"
+                value={form.priority}
+                onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value || "100", 10) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Textarea rows={1} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               {editingId ? "Update" : "Add Provider"}
@@ -249,39 +387,29 @@ const AIProviderSettings = () => {
           </div>
         </div>
 
-        {/* List */}
-        <div className="space-y-3">
-          <h4 className="font-medium">Configured providers</h4>
-          {isLoading ? (
-            <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
-          ) : !providers || providers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">কোনো custom provider নেই — ডিফল্ট Lovable AI ব্যবহার হচ্ছে।</p>
-          ) : (
-            <div className="space-y-2">
-              {providers.map((row) => (
-                <div key={row.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{row.provider_name}</span>
-                      <Badge variant="outline">{row.scope === "customer" ? "Customer" : "Admin"}</Badge>
-                      {row.is_active && (
-                        <Badge className="bg-green-600 hover:bg-green-700">
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Active
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate">{row.model} · {row.base_url}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Switch checked={row.is_active} onCheckedChange={(c) => toggleActive(row, c)} />
-                    <Button variant="ghost" size="icon" onClick={() => startEdit(row)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => remove(row.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                  </div>
-                </div>
-              ))}
+        {/* Lists by scope */}
+        {isLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
+        ) : (
+          <>
+            <div className="space-y-3">
+              <h4 className="font-medium">Customer Chatbot providers</h4>
+              {customerProviders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">কোনো custom provider নেই — Lovable AI ব্যবহার হচ্ছে।</p>
+              ) : (
+                <div className="space-y-2">{customerProviders.map(renderRow)}</div>
+              )}
             </div>
-          )}
-        </div>
+            <div className="space-y-3">
+              <h4 className="font-medium">Admin AI Agent providers</h4>
+              {adminProviders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">কোনো custom provider নেই — Lovable AI ব্যবহার হচ্ছে।</p>
+              ) : (
+                <div className="space-y-2">{adminProviders.map(renderRow)}</div>
+              )}
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

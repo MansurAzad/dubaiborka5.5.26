@@ -1208,34 +1208,66 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Resolve AI provider (custom-configured or Lovable Gateway fallback)
-    let AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-    let AI_HEADERS: Record<string, string> = { "Content-Type": "application/json" };
-    let AI_MODEL = "google/gemini-2.5-flash";
+    // Build ordered AI provider candidates (active -> fallbacks -> Lovable Gateway)
+    type Candidate = { name: string; url: string; headers: Record<string, string>; model: string };
+    const candidates: Candidate[] = [];
     try {
-      const { data: cfg } = await supabaseAdmin.rpc("get_active_ai_provider", { _scope: "admin" });
-      const p = Array.isArray(cfg) ? cfg[0] : cfg;
-      if (p?.base_url && p?.api_key && p?.model) {
-        AI_URL = p.base_url.replace(/\/$/, "") + "/chat/completions";
-        AI_HEADERS = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${p.api_key}`,
-          ...(p.extra_headers && typeof p.extra_headers === "object" ? p.extra_headers : {}),
-        };
-        AI_MODEL = p.model;
-        console.log(`[AI] admin agent using custom provider: ${p.provider_name} (${p.model})`);
-      } else {
-        if (!LOVABLE_API_KEY) {
-          return new Response(JSON.stringify({ error: "No AI provider configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-        AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+      const { data: rows } = await supabaseAdmin.rpc("get_ai_providers_for_scope", { _scope: "admin" });
+      for (const p of (rows || []) as any[]) {
+        if (!p?.base_url || !p?.api_key || !p?.model) continue;
+        candidates.push({
+          name: p.provider_name,
+          url: p.base_url.replace(/\/$/, "") + "/chat/completions",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${p.api_key}`,
+            ...(p.extra_headers && typeof p.extra_headers === "object" ? p.extra_headers : {}),
+          },
+          model: p.model,
+        });
       }
     } catch (e) {
       console.error("provider lookup failed", e);
-      if (!LOVABLE_API_KEY) {
-        return new Response(JSON.stringify({ error: "No AI provider configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (LOVABLE_API_KEY) {
+      candidates.push({
+        name: "Lovable AI Gateway",
+        url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+        model: "google/gemini-2.5-flash",
+      });
+    }
+    if (candidates.length === 0) {
+      return new Response(JSON.stringify({ error: "No AI provider configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    console.log(`[AI] admin candidates: ${candidates.map(c => c.name).join(" -> ")}`);
+
+    async function aiFetch(body: any): Promise<Response> {
+      let lastErr: any = null;
+      for (const c of candidates) {
+        const payload = JSON.stringify({ ...body, model: c.model });
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const ctl = new AbortController();
+          const t = setTimeout(() => ctl.abort(), 60000);
+          try {
+            const r = await fetch(c.url, { method: "POST", headers: c.headers, body: payload, signal: ctl.signal });
+            clearTimeout(t);
+            if (r.ok) return r;
+            const retriable = r.status === 429 || r.status >= 500;
+            const text = await r.text().catch(() => "");
+            lastErr = new Error(`${c.name} HTTP ${r.status}: ${text.slice(0, 200)}`);
+            console.warn(`[AI] ${c.name} attempt ${attempt + 1} -> ${r.status}`);
+            if (!retriable) break;
+            if (attempt === 0) await new Promise(res => setTimeout(res, 500));
+          } catch (e: any) {
+            clearTimeout(t);
+            lastErr = e;
+            console.warn(`[AI] ${c.name} attempt ${attempt + 1} error: ${e?.message || e}`);
+            if (attempt === 0) await new Promise(res => setTimeout(res, 500));
+          }
+        }
       }
-      AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+      throw lastErr || new Error("All AI providers failed");
     }
 
     const allMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...(messages || [])];
@@ -1246,18 +1278,13 @@ serve(async (req) => {
   while (maxIterations-- > 0) {
       // Log iteration for debugging multi-task operations
       console.log(`AI iteration ${6 - maxIterations}, remaining: ${maxIterations}`);
-      const response = await fetch(AI_URL, {
-        method: "POST",
-        headers: AI_HEADERS,
-        body: JSON.stringify({ model: AI_MODEL, messages: currentMessages, tools, stream: false }),
-      });
-
-      if (!response.ok) {
-        const t = await response.text();
-        console.error("AI error:", response.status, t);
-        return new Response(JSON.stringify({ error: "AI gateway error", message: "দুঃখিত, সমস্যা হয়েছে।" }), {
-          status: response.status === 429 ? 429 : 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      let response: Response;
+      try {
+        response = await aiFetch({ messages: currentMessages, tools, stream: false });
+      } catch (e: any) {
+        console.error("All AI providers failed:", e?.message || e);
+        return new Response(JSON.stringify({ error: "AI gateway error", message: "দুঃখিত, সব AI প্রোভাইডার ব্যর্থ হয়েছে।" }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
