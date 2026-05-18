@@ -1278,18 +1278,13 @@ serve(async (req) => {
   while (maxIterations-- > 0) {
       // Log iteration for debugging multi-task operations
       console.log(`AI iteration ${6 - maxIterations}, remaining: ${maxIterations}`);
-      const response = await fetch(AI_URL, {
-        method: "POST",
-        headers: AI_HEADERS,
-        body: JSON.stringify({ model: AI_MODEL, messages: currentMessages, tools, stream: false }),
-      });
-
-      if (!response.ok) {
-        const t = await response.text();
-        console.error("AI error:", response.status, t);
-        return new Response(JSON.stringify({ error: "AI gateway error", message: "দুঃখিত, সমস্যা হয়েছে।" }), {
-          status: response.status === 429 ? 429 : 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      let response: Response;
+      try {
+        response = await aiFetch({ messages: currentMessages, tools, stream: false });
+      } catch (e: any) {
+        console.error("All AI providers failed:", e?.message || e);
+        return new Response(JSON.stringify({ error: "AI gateway error", message: "দুঃখিত, সব AI প্রোভাইডার ব্যর্থ হয়েছে।" }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
