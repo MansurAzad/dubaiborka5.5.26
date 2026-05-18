@@ -1584,12 +1584,8 @@ serve(async (req) => {
             await writer.write(encoder.encode(fakeChunk));
             await writer.write(encoder.encode("data: [DONE]\n\n"));
           } else {
-            const streamResponse = await fetch(AI_URL, {
-              method: "POST",
-              headers: AI_HEADERS,
-              body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000, stream: true }),
-            });
-            if (!streamResponse.ok) throw new Error(`AI stream error: ${streamResponse.status}`);
+            const streamResponse = await aiFetch({ messages: aiMessages, temperature: 0.1, max_tokens: 4000, stream: true });
+            if (!streamResponse.ok || !streamResponse.body) throw new Error(`AI stream error: ${streamResponse.status}`);
             const reader = streamResponse.body!.getReader();
             while (true) {
               const { done, value } = await reader.read();
