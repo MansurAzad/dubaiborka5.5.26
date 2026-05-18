@@ -1606,11 +1606,7 @@ serve(async (req) => {
     }
 
     // Non-streaming final call
-    const finalResponse = await fetch(AI_URL, {
-      method: "POST",
-      headers: AI_HEADERS,
-      body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, temperature: 0.1, max_tokens: 4000 }),
-    });
+    const finalResponse = await aiFetch({ messages: aiMessages, temperature: 0.1, max_tokens: 4000 });
 
     if (!finalResponse.ok) throw new Error(`AI error: ${finalResponse.status}`);
     const finalData = await finalResponse.json();
