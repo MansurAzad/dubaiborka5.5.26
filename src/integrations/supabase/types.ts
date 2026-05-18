@@ -58,8 +58,15 @@ export type Database = {
           extra_headers: Json | null
           id: string
           is_active: boolean
+          is_fallback: boolean
+          last_test_at: string | null
+          last_test_error: string | null
+          last_test_latency_ms: number | null
+          last_test_sample: string | null
+          last_test_status: string | null
           model: string
           notes: string | null
+          priority: number
           provider_name: string
           scope: string
           updated_at: string
@@ -71,8 +78,15 @@ export type Database = {
           extra_headers?: Json | null
           id?: string
           is_active?: boolean
+          is_fallback?: boolean
+          last_test_at?: string | null
+          last_test_error?: string | null
+          last_test_latency_ms?: number | null
+          last_test_sample?: string | null
+          last_test_status?: string | null
           model: string
           notes?: string | null
+          priority?: number
           provider_name: string
           scope: string
           updated_at?: string
@@ -84,8 +98,15 @@ export type Database = {
           extra_headers?: Json | null
           id?: string
           is_active?: boolean
+          is_fallback?: boolean
+          last_test_at?: string | null
+          last_test_error?: string | null
+          last_test_latency_ms?: number | null
+          last_test_sample?: string | null
+          last_test_status?: string | null
           model?: string
           notes?: string | null
+          priority?: number
           provider_name?: string
           scope?: string
           updated_at?: string
@@ -1541,6 +1562,20 @@ export type Database = {
           provider_name: string
         }[]
       }
+      get_ai_providers_for_scope: {
+        Args: { _scope: string }
+        Returns: {
+          api_key: string
+          base_url: string
+          extra_headers: Json
+          id: string
+          is_active: boolean
+          is_fallback: boolean
+          model: string
+          priority: number
+          provider_name: string
+        }[]
+      }
       get_ai_usage: {
         Args: never
         Returns: {
@@ -1561,6 +1596,29 @@ export type Database = {
         Returns: boolean
       }
       increment_ai_usage: { Args: never; Returns: undefined }
+      list_ai_providers: {
+        Args: never
+        Returns: {
+          api_key_masked: string
+          base_url: string
+          created_at: string
+          extra_headers: Json
+          id: string
+          is_active: boolean
+          is_fallback: boolean
+          last_test_at: string
+          last_test_error: string
+          last_test_latency_ms: number
+          last_test_sample: string
+          last_test_status: string
+          model: string
+          notes: string
+          priority: number
+          provider_name: string
+          scope: string
+          updated_at: string
+        }[]
+      }
       track_order_by_id: {
         Args: { order_id: string }
         Returns: {
