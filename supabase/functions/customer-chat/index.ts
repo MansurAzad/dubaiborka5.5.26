@@ -1264,31 +1264,67 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Resolve AI provider: custom configured in admin settings, else Lovable AI Gateway
-    let AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-    let AI_HEADERS: Record<string, string> = { "Content-Type": "application/json" };
-    let AI_MODEL_OVERRIDE: string | null = null;
+    // Build ordered AI provider candidates (active -> fallbacks -> Lovable Gateway)
+    type Candidate = { name: string; url: string; headers: Record<string, string>; model: string };
+    const candidates: Candidate[] = [];
     try {
-      const { data: cfg } = await supabase.rpc("get_active_ai_provider", { _scope: "customer" });
-      const p = Array.isArray(cfg) ? cfg[0] : cfg;
-      if (p?.base_url && p?.api_key && p?.model) {
-        AI_URL = p.base_url.replace(/\/$/, "") + "/chat/completions";
-        AI_HEADERS = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${p.api_key}`,
-          ...(p.extra_headers && typeof p.extra_headers === "object" ? p.extra_headers : {}),
-        };
-        AI_MODEL_OVERRIDE = p.model;
-        console.log(`[AI] using custom provider: ${p.provider_name} (${p.model})`);
-      } else {
-        if (!LOVABLE_API_KEY) throw new Error("No AI provider configured");
-        AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+      const { data: rows } = await supabase.rpc("get_ai_providers_for_scope", { _scope: "customer" });
+      for (const p of (rows || []) as any[]) {
+        if (!p?.base_url || !p?.api_key || !p?.model) continue;
+        candidates.push({
+          name: p.provider_name,
+          url: p.base_url.replace(/\/$/, "") + "/chat/completions",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${p.api_key}`,
+            ...(p.extra_headers && typeof p.extra_headers === "object" ? p.extra_headers : {}),
+          },
+          model: p.model,
+        });
       }
     } catch (e) {
-      console.error("provider lookup failed, falling back to Lovable", e);
-      if (!LOVABLE_API_KEY) throw new Error("No AI provider configured");
-      AI_HEADERS.Authorization = `Bearer ${LOVABLE_API_KEY}`;
+      console.error("provider lookup failed", e);
     }
+    if (LOVABLE_API_KEY) {
+      candidates.push({
+        name: "Lovable AI Gateway",
+        url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+        model: "google/gemini-2.5-pro",
+      });
+    }
+    if (candidates.length === 0) throw new Error("No AI provider configured");
+    console.log(`[AI] customer candidates: ${candidates.map(c => c.name).join(" -> ")}`);
+
+    // Retry/fallback fetch: 1 retry per provider on 429/5xx/timeout, then next provider
+    async function aiFetch(body: any): Promise<Response> {
+      let lastErr: any = null;
+      for (const c of candidates) {
+        const payload = JSON.stringify({ ...body, model: c.model });
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const ctl = new AbortController();
+          const t = setTimeout(() => ctl.abort(), 45000);
+          try {
+            const r = await fetch(c.url, { method: "POST", headers: c.headers, body: payload, signal: ctl.signal });
+            clearTimeout(t);
+            if (r.ok) return r;
+            const retriable = r.status === 429 || r.status >= 500;
+            const text = await r.text().catch(() => "");
+            lastErr = new Error(`${c.name} HTTP ${r.status}: ${text.slice(0, 200)}`);
+            console.warn(`[AI] ${c.name} attempt ${attempt + 1} -> ${r.status}`);
+            if (!retriable) break; // non-retriable on this provider -> next provider
+            if (attempt === 0) await new Promise(res => setTimeout(res, 400));
+          } catch (e: any) {
+            clearTimeout(t);
+            lastErr = e;
+            console.warn(`[AI] ${c.name} attempt ${attempt + 1} error: ${e?.message || e}`);
+            if (attempt === 0) await new Promise(res => setTimeout(res, 400));
+          }
+        }
+      }
+      throw lastErr || new Error("All AI providers failed");
+    }
+    const AI_MODEL_OVERRIDE: string | null = candidates[0]?.model || null;
 
     const { messages, stream: wantStream, save_chat_history } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
