@@ -1374,17 +1374,13 @@ serve(async (req) => {
     let lastSearchContext: { category?: string; query?: string; offset?: number } | null = null;
 
     for (let i = 0; i < 5; i++) {
-      const response = await fetch(AI_URL, {
-        method: "POST",
-        headers: AI_HEADERS,
-        body: JSON.stringify({ model: AI_MODEL, messages: aiMessages, tools, temperature: 0.1, max_tokens: 4000 }),
-      });
-
-      if (!response.ok) {
-        const status = response.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "সার্ভার ব্যস্ত, কিছুক্ষণ পর আবার চেষ্টা করুন।" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "সার্ভিস সাময়িকভাবে বন্ধ আছে।" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw new Error(`AI error: ${status}`);
+      let response: Response;
+      try {
+        response = await aiFetch({ messages: aiMessages, tools, temperature: 0.1, max_tokens: 4000 });
+      } catch (e: any) {
+        console.error("All AI providers failed:", e?.message || e);
+        return new Response(JSON.stringify({ error: "সার্ভার ব্যস্ত, কিছুক্ষণ পর আবার চেষ্টা করুন।" }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const aiData = await response.json();
