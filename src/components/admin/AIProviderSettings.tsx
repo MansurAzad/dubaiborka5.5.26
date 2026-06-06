@@ -69,14 +69,28 @@ const AIProviderSettings = () => {
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
 
-  const { data: providers, isLoading } = useQuery({
+  const { data: providers, isLoading, error: loadError, refetch, isFetching } = useQuery({
     queryKey: ["ai-providers"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("list_ai_providers" as any);
       if (error) throw error;
       return (data || []) as unknown as ProviderRow[];
     },
+    retry: 1,
   });
+
+  useEffect(() => {
+    if (loadError) {
+      const msg = (loadError as any)?.message || String(loadError);
+      toast({
+        title: "Provider লোড করা যায়নি",
+        description: /function|does not exist|schema cache/i.test(msg)
+          ? "RPC list_ai_providers পাওয়া যাচ্ছে না — ডাটাবেস migration প্রয়োজন।"
+          : msg,
+        variant: "destructive",
+      });
+    }
+  }, [loadError, toast]);
 
   const customerProviders = (providers || []).filter((p) => p.scope === "customer");
   const adminProviders = (providers || []).filter((p) => p.scope === "admin");
