@@ -114,7 +114,7 @@ const VariantManager = ({ productId, productName, availableSizes, availableColor
         imageUrl = newVariantImageUrl.trim();
       }
       if (imageUrl) {
-        await supabase.from("product_variants").update({ image_url: imageUrl }).eq("id", data.id);
+        await supabase.from("product_variants").update({ image_url: imageUrl, image_urls: [imageUrl] }).eq("id", data.id);
       }
       toast({ title: "সফল", description: "ভেরিয়েন্ট যোগ হয়েছে" });
       setNewVariant({ size: "", color: "", stock: 0, sku: "", price_adjustment: 0 });
