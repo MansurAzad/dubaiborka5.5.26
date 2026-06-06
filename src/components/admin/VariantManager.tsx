@@ -12,6 +12,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import VariantImageGallery from "./VariantImageGallery";
 
 interface ProductVariant {
   id: string;
@@ -22,6 +23,7 @@ interface ProductVariant {
   sku: string | null;
   price_adjustment: number;
   image_url: string | null;
+  image_urls: string[] | null;
 }
 
 interface VariantManagerProps {
@@ -66,13 +68,16 @@ const VariantManager = ({ productId, productName, availableSizes, availableColor
 
   useEffect(() => { fetchVariants(); }, [productId]);
 
-  const uploadVariantImage = async (file: File, variantId: string): Promise<string | null> => {
+  const uploadVariantImage = async (file: File, _variantId: string): Promise<string | null> => {
     try {
-      const { uploadToCloudinary } = await import("@/lib/cloudinary");
-      const result = await uploadToCloudinary(file, `products/variants/${productId}`);
+      const { uploadProductImage } = await import("@/lib/storage-upload");
+      const result = await uploadProductImage(file, `products/variants/${productId}`);
       if (!result.success) {
         toast({ title: "Upload Error", description: result.error || "Failed", variant: "destructive" });
         return null;
+      }
+      if (result.cloudinaryError) {
+        toast({ title: "Mirror warning", description: `Cloudinary: ${result.cloudinaryError}` });
       }
       return result.url!;
     } catch (error: any) {
@@ -109,7 +114,7 @@ const VariantManager = ({ productId, productName, availableSizes, availableColor
         imageUrl = newVariantImageUrl.trim();
       }
       if (imageUrl) {
-        await supabase.from("product_variants").update({ image_url: imageUrl }).eq("id", data.id);
+        await supabase.from("product_variants").update({ image_url: imageUrl, image_urls: [imageUrl] }).eq("id", data.id);
       }
       toast({ title: "সফল", description: "ভেরিয়েন্ট যোগ হয়েছে" });
       setNewVariant({ size: "", color: "", stock: 0, sku: "", price_adjustment: 0 });
@@ -363,23 +368,13 @@ const VariantManager = ({ productId, productName, availableSizes, availableColor
             {variants.map((variant) => (
               <TableRow key={variant.id} className={variant.stock === 0 ? "opacity-50 bg-destructive/5" : ""}>
                 <TableCell>
-                  <div className="relative w-12 h-12">
-                    {variant.image_url ? (
-                      <img src={variant.image_url} alt={variant.color || "variant"} className="w-12 h-12 object-cover rounded-md border border-border" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-md border border-dashed border-border flex items-center justify-center bg-muted/50">
-                        <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    )}
-                    <label className="absolute inset-0 cursor-pointer opacity-0 hover:opacity-100 bg-background/80 rounded-md flex items-center justify-center transition-opacity">
-                      {uploadingId === variant.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Upload className="w-4 h-4 text-primary" />
-                      )}
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleImageUpload(variant.id, e.target.files[0])} />
-                    </label>
-                  </div>
+                  <VariantImageGallery
+                    variantId={variant.id}
+                    productId={productId}
+                    mainImage={variant.image_url}
+                    images={variant.image_urls || []}
+                    onUpdated={fetchVariants}
+                  />
                 </TableCell>
                 <TableCell>
                   {variant.size ? <Badge variant="outline">{variant.size}</Badge> : <span className="text-muted-foreground">-</span>}
