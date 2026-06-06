@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Upload, X, Loader2, GripVertical, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToCloudinary } from "@/lib/cloudinary";
+import { uploadProductImage } from "@/lib/storage-upload";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -32,8 +32,8 @@ const MultiImageUpload = ({ productId, images, onImagesChange, bucket = "product
         toast({ title: "Skipped", description: `${f.name} is not an image`, variant: "destructive" });
         return false;
       }
-      if (f.size > 5 * 1024 * 1024) {
-        toast({ title: "Skipped", description: `${f.name} exceeds 5MB limit`, variant: "destructive" });
+      if (f.size > 10 * 1024 * 1024) {
+        toast({ title: "Skipped", description: `${f.name} exceeds 10MB limit`, variant: "destructive" });
         return false;
       }
       return true;
@@ -43,14 +43,16 @@ const MultiImageUpload = ({ productId, images, onImagesChange, bucket = "product
 
     setUploading(true);
     const newImages: ProductImage[] = [];
+    let mirroredCount = 0;
 
     for (const file of validFiles) {
       try {
-        const result = await uploadToCloudinary(file, `products/${productId}`);
+        const result = await uploadProductImage(file, `products/${productId}`);
         if (!result.success) {
           toast({ title: "Upload failed", description: `${file.name}: ${result.error}`, variant: "destructive" });
           continue;
         }
+        if (result.cloudinaryUrl) mirroredCount++;
 
         newImages.push({
           image_url: result.url!,
