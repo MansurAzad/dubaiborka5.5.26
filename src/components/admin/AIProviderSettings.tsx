@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Bot, Loader2, CheckCircle2, XCircle, Pencil, Save, X, Trash2, Play, Shield,
+  Bot, Loader2, CheckCircle2, XCircle, Pencil, Save, X, Trash2, Play, Shield, AlertTriangle, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -68,14 +69,28 @@ const AIProviderSettings = () => {
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
 
-  const { data: providers, isLoading } = useQuery({
+  const { data: providers, isLoading, error: loadError, refetch, isFetching } = useQuery({
     queryKey: ["ai-providers"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("list_ai_providers" as any);
       if (error) throw error;
       return (data || []) as unknown as ProviderRow[];
     },
+    retry: 1,
   });
+
+  useEffect(() => {
+    if (loadError) {
+      const msg = (loadError as any)?.message || String(loadError);
+      toast({
+        title: "Provider লোড করা যায়নি",
+        description: /function|does not exist|schema cache/i.test(msg)
+          ? "RPC list_ai_providers পাওয়া যাচ্ছে না — ডাটাবেস migration প্রয়োজন।"
+          : msg,
+        variant: "destructive",
+      });
+    }
+  }, [loadError, toast]);
 
   const customerProviders = (providers || []).filter((p) => p.scope === "customer");
   const adminProviders = (providers || []).filter((p) => p.scope === "admin");
@@ -390,6 +405,23 @@ const AIProviderSettings = () => {
         {/* Lists by scope */}
         {isLoading ? (
           <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
+        ) : loadError ? (
+          <Alert variant="destructive">
+            <AlertTriangle className="w-4 h-4" />
+            <AlertTitle>Providers লোড করা যাচ্ছে না</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p className="text-sm break-all">{(loadError as any)?.message || String(loadError)}</p>
+              {/function|does not exist|schema cache/i.test((loadError as any)?.message || "") && (
+                <p className="text-xs">
+                  সম্ভাব্য কারণ: <code>list_ai_providers</code> RPC ডাটাবেসে নেই। সর্বশেষ migration approve করুন।
+                </p>
+              )}
+              <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                আবার চেষ্টা করুন
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : (
           <>
             <div className="space-y-3">
