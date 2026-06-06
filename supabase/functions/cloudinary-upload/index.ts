@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -16,7 +22,10 @@ serve(async (req) => {
     const API_SECRET = Deno.env.get('CLOUDINARY_API_SECRET');
 
     if (!CLOUD_NAME || !API_KEY || !API_SECRET) {
-      throw new Error('Cloudinary credentials not configured');
+      return jsonResponse({
+        success: false,
+        error: 'Cloudinary credentials not configured',
+      });
     }
 
     const formData = await req.formData();
@@ -33,7 +42,10 @@ serve(async (req) => {
     } else if (fileUrl) {
       uploadData.append('file', fileUrl);
     } else {
-      throw new Error('No file or file_url provided');
+      return jsonResponse({
+        success: false,
+        error: 'No file or file_url provided',
+      }, 400);
     }
 
     // Use unique_filename + overwrite=false for deduplication
@@ -65,10 +77,16 @@ serve(async (req) => {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.error?.message || 'Cloudinary upload failed');
+      const message = result.error?.message || 'Cloudinary upload failed';
+      console.error('Cloudinary API upload failed:', message);
+      return jsonResponse({
+        success: false,
+        error: message,
+        cloud_name_configured: Boolean(CLOUD_NAME),
+      });
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       url: result.secure_url,
       public_id: result.public_id,
@@ -77,17 +95,12 @@ serve(async (req) => {
       format: result.format,
       bytes: result.bytes,
       existing: result.existing || false,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Cloudinary upload error:', error);
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
       error: error.message,
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
