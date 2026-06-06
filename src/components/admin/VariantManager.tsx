@@ -12,6 +12,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import VariantImageGallery from "./VariantImageGallery";
 
 interface ProductVariant {
   id: string;
@@ -22,6 +23,7 @@ interface ProductVariant {
   sku: string | null;
   price_adjustment: number;
   image_url: string | null;
+  image_urls: string[] | null;
 }
 
 interface VariantManagerProps {
