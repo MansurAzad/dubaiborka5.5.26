@@ -68,13 +68,16 @@ const VariantManager = ({ productId, productName, availableSizes, availableColor
 
   useEffect(() => { fetchVariants(); }, [productId]);
 
-  const uploadVariantImage = async (file: File, variantId: string): Promise<string | null> => {
+  const uploadVariantImage = async (file: File, _variantId: string): Promise<string | null> => {
     try {
-      const { uploadToCloudinary } = await import("@/lib/cloudinary");
-      const result = await uploadToCloudinary(file, `products/variants/${productId}`);
+      const { uploadProductImage } = await import("@/lib/storage-upload");
+      const result = await uploadProductImage(file, `products/variants/${productId}`);
       if (!result.success) {
         toast({ title: "Upload Error", description: result.error || "Failed", variant: "destructive" });
         return null;
+      }
+      if (result.cloudinaryError) {
+        toast({ title: "Mirror warning", description: `Cloudinary: ${result.cloudinaryError}` });
       }
       return result.url!;
     } catch (error: any) {
