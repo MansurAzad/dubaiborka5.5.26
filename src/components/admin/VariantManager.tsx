@@ -368,23 +368,13 @@ const VariantManager = ({ productId, productName, availableSizes, availableColor
             {variants.map((variant) => (
               <TableRow key={variant.id} className={variant.stock === 0 ? "opacity-50 bg-destructive/5" : ""}>
                 <TableCell>
-                  <div className="relative w-12 h-12">
-                    {variant.image_url ? (
-                      <img src={variant.image_url} alt={variant.color || "variant"} className="w-12 h-12 object-cover rounded-md border border-border" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-md border border-dashed border-border flex items-center justify-center bg-muted/50">
-                        <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    )}
-                    <label className="absolute inset-0 cursor-pointer opacity-0 hover:opacity-100 bg-background/80 rounded-md flex items-center justify-center transition-opacity">
-                      {uploadingId === variant.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Upload className="w-4 h-4 text-primary" />
-                      )}
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleImageUpload(variant.id, e.target.files[0])} />
-                    </label>
-                  </div>
+                  <VariantImageGallery
+                    variantId={variant.id}
+                    productId={productId}
+                    mainImage={variant.image_url}
+                    images={variant.image_urls || []}
+                    onUpdated={fetchVariants}
+                  />
                 </TableCell>
                 <TableCell>
                   {variant.size ? <Badge variant="outline">{variant.size}</Badge> : <span className="text-muted-foreground">-</span>}
