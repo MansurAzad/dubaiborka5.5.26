@@ -1568,7 +1568,6 @@ export type Database = {
           api_key: string
           base_url: string
           extra_headers: Json
-          id: string
           is_active: boolean
           is_fallback: boolean
           model: string
@@ -1601,7 +1600,6 @@ export type Database = {
         Returns: {
           api_key_masked: string
           base_url: string
-          created_at: string
           extra_headers: Json
           id: string
           is_active: boolean
@@ -1616,7 +1614,6 @@ export type Database = {
           priority: number
           provider_name: string
           scope: string
-          updated_at: string
         }[]
       }
       track_order_by_id: {
