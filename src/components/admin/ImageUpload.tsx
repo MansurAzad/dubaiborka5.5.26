@@ -1,6 +1,6 @@
 import { useState, useRef, forwardRef } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
-import { uploadToCloudinary } from "@/lib/cloudinary";
+import { uploadProductImage } from "@/lib/storage-upload";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -23,20 +23,25 @@ const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
         toast({ title: "Error", description: "Please upload an image file", variant: "destructive" });
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "Error", description: "Image must be less than 5MB", variant: "destructive" });
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Error", description: "Image must be less than 10MB", variant: "destructive" });
         return;
       }
 
       setUploading(true);
       try {
-        const result = await uploadToCloudinary(file, "products");
+        const result = await uploadProductImage(file, "products");
         if (!result.success) {
           toast({ title: "Upload failed", description: result.error || "Unknown error", variant: "destructive" });
           return;
         }
         onChange(result.url!);
-        toast({ title: "Success", description: result.existing ? "Image already exists (deduplicated)" : "Image uploaded successfully" });
+        toast({
+          title: "Success",
+          description: result.cloudinaryUrl
+            ? "Uploaded to Lovable Cloud + Cloudinary mirror"
+            : "Uploaded to Lovable Cloud (Cloudinary mirror skipped)",
+        });
       } catch (error: any) {
         toast({ title: "Upload failed", description: error.message, variant: "destructive" });
       } finally {
