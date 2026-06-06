@@ -405,6 +405,23 @@ const AIProviderSettings = () => {
         {/* Lists by scope */}
         {isLoading ? (
           <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
+        ) : loadError ? (
+          <Alert variant="destructive">
+            <AlertTriangle className="w-4 h-4" />
+            <AlertTitle>Providers লোড করা যাচ্ছে না</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p className="text-sm break-all">{(loadError as any)?.message || String(loadError)}</p>
+              {/function|does not exist|schema cache/i.test((loadError as any)?.message || "") && (
+                <p className="text-xs">
+                  সম্ভাব্য কারণ: <code>list_ai_providers</code> RPC ডাটাবেসে নেই। সর্বশেষ migration approve করুন।
+                </p>
+              )}
+              <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                আবার চেষ্টা করুন
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : (
           <>
             <div className="space-y-3">
