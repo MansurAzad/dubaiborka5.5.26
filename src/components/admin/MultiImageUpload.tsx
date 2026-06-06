@@ -88,7 +88,10 @@ const MultiImageUpload = ({ productId, images, onImagesChange, bucket = "product
           display_order: s.display_order,
         }))];
         onImagesChange(allImages);
-        toast({ title: "Success", description: `${newImages.length} image(s) uploaded` });
+        toast({
+          title: "Success",
+          description: `${newImages.length} image(s) uploaded • Cloudinary mirror: ${mirroredCount}/${newImages.length}`,
+        });
       }
     }
 
