@@ -134,13 +134,15 @@ export async function uploadProductImage(
         emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ✓" });
       } else {
         cloudinaryError = mirror.error || "Unknown Cloudinary error";
-        console.warn("[storage-upload] Cloudinary mirror failed:", cloudinaryError);
-        emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ", detail: cloudinaryError });
+        logCloudinaryFailure(cloudinaryError, (mirror as any).reason);
+        console.warn("[storage-upload] Cloudinary mirror failed — fallback to Lovable Cloud URL:", cloudinaryError);
+        emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ — Lovable Cloud fallback সক্রিয়", detail: cloudinaryError });
       }
     } catch (err: any) {
       cloudinaryError = err?.message || String(err);
-      console.warn("[storage-upload] Cloudinary mirror exception:", cloudinaryError);
-      emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ", detail: cloudinaryError });
+      logCloudinaryFailure(cloudinaryError, "exception");
+      console.warn("[storage-upload] Cloudinary mirror exception — fallback to Lovable Cloud URL:", cloudinaryError);
+      emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ — Lovable Cloud fallback সক্রিয়", detail: cloudinaryError });
     }
   } else {
     emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror স্কিপ" });
