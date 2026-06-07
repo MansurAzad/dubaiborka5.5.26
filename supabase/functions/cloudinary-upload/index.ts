@@ -78,10 +78,25 @@ serve(async (req) => {
 
     if (!response.ok) {
       const message = result.error?.message || 'Cloudinary upload failed';
-      console.error('Cloudinary API upload failed:', message);
+      const reason =
+        response.status === 401
+          ? 'invalid_credentials'
+          : response.status === 404 || /cloud_name/i.test(message)
+          ? 'invalid_cloud_name'
+          : response.status === 420 || response.status === 429
+          ? 'rate_limited'
+          : 'api_error';
+      console.error('[cloudinary-upload] failed', {
+        http_status: response.status,
+        reason,
+        message,
+        cloud_name: CLOUD_NAME,
+      });
       return jsonResponse({
         success: false,
         error: message,
+        reason,
+        http_status: response.status,
         cloud_name_configured: Boolean(CLOUD_NAME),
       });
     }
@@ -96,11 +111,15 @@ serve(async (req) => {
       bytes: result.bytes,
       existing: result.existing || false,
     });
-  } catch (error) {
-    console.error('Cloudinary upload error:', error);
+  } catch (error: any) {
+    console.error('[cloudinary-upload] exception', {
+      message: error?.message,
+      stack: error?.stack,
+    });
     return jsonResponse({
       success: false,
-      error: error.message,
+      error: error?.message || String(error),
+      reason: 'exception',
     });
   }
 });
