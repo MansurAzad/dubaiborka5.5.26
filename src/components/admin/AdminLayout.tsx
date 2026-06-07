@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Users, Star, Settings,
   LogOut, ChevronLeft, Tag, Mail, BarChart3, RotateCcw, Truck,
   FileText, Menu, X, MapPin, Bell, MessageCircle, Shield, Edit3, Route, Gift, ShoppingBag,
-  HardDrive, ScrollText,
+  HardDrive, ScrollText, Cloud,
 } from "lucide-react";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +45,7 @@ const navItems = [
   { path: "/admin/referrals", icon: Gift, label: "Referral Dashboard" },
   { path: "/admin/social-proof", icon: ShoppingBag, label: "Social Proof" },
   { path: "/admin/backup", icon: HardDrive, label: "Backup & Reset" },
+  { path: "/admin/cloudinary", icon: Cloud, label: "Cloudinary" },
   { path: "/admin/meta-pixel", icon: BarChart3, label: "Meta Pixel" },
   { path: "/admin/google-analytics", icon: BarChart3, label: "Google Analytics" },
   { path: "/admin/settings", icon: Settings, label: "Settings" },

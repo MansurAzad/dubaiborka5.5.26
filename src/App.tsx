@@ -64,6 +64,7 @@ const SocialProofMessages = lazy(() => import("./pages/admin/SocialProofMessages
 const BackupRestore = lazy(() => import("./pages/admin/BackupRestore"));
 const SteadfastCourier = lazy(() => import("./pages/admin/SteadfastCourier"));
 const CourierAuditLogs = lazy(() => import("./pages/admin/CourierAuditLogs"));
+const CloudinarySettings = lazy(() => import("./pages/admin/CloudinarySettings"));
 import PermissionGuard from "@/components/admin/PermissionGuard";
 
 // Marketing components - deferred to avoid query storms on initial load
@@ -154,6 +155,7 @@ const App = () => (
                   <Route path="/admin/google-analytics" element={<PermissionGuard><GoogleAnalytics /></PermissionGuard>} />
                   <Route path="/admin/social-proof" element={<PermissionGuard><SocialProofMessages /></PermissionGuard>} />
                   <Route path="/admin/backup" element={<PermissionGuard><BackupRestore /></PermissionGuard>} />
+                  <Route path="/admin/cloudinary" element={<PermissionGuard><CloudinarySettings /></PermissionGuard>} />
 
                   <Route path="/return-policy" element={<ReturnPolicy />} />
                   <Route path="/faq" element={<FAQ />} />

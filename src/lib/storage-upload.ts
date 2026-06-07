@@ -2,6 +2,36 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { compressImage, formatBytes } from "@/lib/image-compress";
 
+const CLOUDINARY_LOG_KEY = "cloudinary_recent_failures";
+
+function logCloudinaryFailure(message: string, reason?: string) {
+  try {
+    const raw = localStorage.getItem(CLOUDINARY_LOG_KEY);
+    const arr: Array<{ at: string; message: string; reason?: string }> = raw ? JSON.parse(raw) : [];
+    arr.unshift({ at: new Date().toISOString(), message, reason });
+    localStorage.setItem(CLOUDINARY_LOG_KEY, JSON.stringify(arr.slice(0, 20)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getCloudinaryRecentFailures(): Array<{ at: string; message: string; reason?: string }> {
+  try {
+    const raw = localStorage.getItem(CLOUDINARY_LOG_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearCloudinaryFailures() {
+  try {
+    localStorage.removeItem(CLOUDINARY_LOG_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export interface DualUploadResult {
   success: boolean;
   url?: string;
@@ -134,13 +164,15 @@ export async function uploadProductImage(
         emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ✓" });
       } else {
         cloudinaryError = mirror.error || "Unknown Cloudinary error";
-        console.warn("[storage-upload] Cloudinary mirror failed:", cloudinaryError);
-        emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ", detail: cloudinaryError });
+        logCloudinaryFailure(cloudinaryError, (mirror as any).reason);
+        console.warn("[storage-upload] Cloudinary mirror failed — fallback to Lovable Cloud URL:", cloudinaryError);
+        emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ — Lovable Cloud fallback সক্রিয়", detail: cloudinaryError });
       }
     } catch (err: any) {
       cloudinaryError = err?.message || String(err);
-      console.warn("[storage-upload] Cloudinary mirror exception:", cloudinaryError);
-      emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ", detail: cloudinaryError });
+      logCloudinaryFailure(cloudinaryError, "exception");
+      console.warn("[storage-upload] Cloudinary mirror exception — fallback to Lovable Cloud URL:", cloudinaryError);
+      emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror ব্যর্থ — Lovable Cloud fallback সক্রিয়", detail: cloudinaryError });
     }
   } else {
     emit({ stage: "cloudinary", progress: 100, message: "Cloudinary mirror স্কিপ" });
