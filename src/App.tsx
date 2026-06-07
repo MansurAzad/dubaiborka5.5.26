@@ -64,6 +64,7 @@ const SocialProofMessages = lazy(() => import("./pages/admin/SocialProofMessages
 const BackupRestore = lazy(() => import("./pages/admin/BackupRestore"));
 const SteadfastCourier = lazy(() => import("./pages/admin/SteadfastCourier"));
 const CourierAuditLogs = lazy(() => import("./pages/admin/CourierAuditLogs"));
+const CloudinarySettings = lazy(() => import("./pages/admin/CloudinarySettings"));
 import PermissionGuard from "@/components/admin/PermissionGuard";
 
 // Marketing components - deferred to avoid query storms on initial load
