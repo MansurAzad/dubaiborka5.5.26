@@ -155,6 +155,7 @@ const App = () => (
                   <Route path="/admin/google-analytics" element={<PermissionGuard><GoogleAnalytics /></PermissionGuard>} />
                   <Route path="/admin/social-proof" element={<PermissionGuard><SocialProofMessages /></PermissionGuard>} />
                   <Route path="/admin/backup" element={<PermissionGuard><BackupRestore /></PermissionGuard>} />
+                  <Route path="/admin/cloudinary" element={<PermissionGuard><CloudinarySettings /></PermissionGuard>} />
 
                   <Route path="/return-policy" element={<ReturnPolicy />} />
                   <Route path="/faq" element={<FAQ />} />
