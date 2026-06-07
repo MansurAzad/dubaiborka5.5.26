@@ -1,4 +1,4 @@
-ns# Dubai Borka House - robots.txt
+# Dubai Borka House - robots.txt
 # Allow all major search engines and AI crawlers for maximum discoverability
 
 # ===== Search Engines =====
