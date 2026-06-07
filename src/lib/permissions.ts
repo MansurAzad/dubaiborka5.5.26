@@ -133,6 +133,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey | "admin_only"> = {
   "/admin/referrals": "admin_only",
   "/admin/social-proof": "content.manage",
   "/admin/backup": "admin_only",
+  "/admin/cloudinary": "admin_only",
   "/admin/meta-pixel": "admin_only",
   "/admin/google-analytics": "admin_only",
   "/admin/settings": "admin_only",
