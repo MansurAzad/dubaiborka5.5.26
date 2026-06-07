@@ -45,6 +45,7 @@ const navItems = [
   { path: "/admin/referrals", icon: Gift, label: "Referral Dashboard" },
   { path: "/admin/social-proof", icon: ShoppingBag, label: "Social Proof" },
   { path: "/admin/backup", icon: HardDrive, label: "Backup & Reset" },
+  { path: "/admin/cloudinary", icon: Cloud, label: "Cloudinary" },
   { path: "/admin/meta-pixel", icon: BarChart3, label: "Meta Pixel" },
   { path: "/admin/google-analytics", icon: BarChart3, label: "Google Analytics" },
   { path: "/admin/settings", icon: Settings, label: "Settings" },
