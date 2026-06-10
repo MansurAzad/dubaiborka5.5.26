@@ -152,9 +152,7 @@ const ProductGallery = ({ mainImage, images, videoUrl, productName, discount, ch
           loop
           playsInline
           preload="auto"
-          // @ts-expect-error - non-standard attrs improve iOS Safari inline playback
-          webkit-playsinline="true"
-          x5-playsinline="true"
+          {...({ "webkit-playsinline": "true", "x5-playsinline": "true" } as any)}
           className="w-full h-full object-contain"
           onLoadedMetadata={() => setVideoLoading(false)}
           onCanPlay={() => setVideoLoading(false)}
