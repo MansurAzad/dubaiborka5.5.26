@@ -64,6 +64,58 @@ export const trackViewContent = (product: { id: string; name: string; price: num
   }
 };
 
+export const trackInitiateCheckout = (total: number, items: { id: string; name: string; price: number; quantity: number }[]) => {
+  const w = window as any;
+  if (w.gtag) {
+    w.gtag("event", "begin_checkout", {
+      currency: "BDT",
+      value: total,
+      items: items.map(i => ({ item_id: i.id, item_name: i.name, price: i.price, quantity: i.quantity })),
+    });
+  }
+  if (w.fbq) {
+    w.fbq("track", "InitiateCheckout", {
+      content_ids: items.map(i => i.id),
+      content_type: "product",
+      value: total,
+      currency: "BDT",
+      num_items: items.reduce((s, i) => s + i.quantity, 0),
+    });
+  }
+};
+
+export const trackSearch = (query: string) => {
+  const w = window as any;
+  if (w.gtag) w.gtag("event", "search", { search_term: query });
+  if (w.fbq) w.fbq("track", "Search", { search_string: query });
+};
+
+export const trackAddToWishlist = (product: { id: string; name: string; price: number }) => {
+  const w = window as any;
+  if (w.gtag) {
+    w.gtag("event", "add_to_wishlist", {
+      currency: "BDT",
+      value: product.price,
+      items: [{ item_id: product.id, item_name: product.name, price: product.price }],
+    });
+  }
+  if (w.fbq) {
+    w.fbq("track", "AddToWishlist", {
+      content_ids: [product.id],
+      content_name: product.name,
+      content_type: "product",
+      value: product.price,
+      currency: "BDT",
+    });
+  }
+};
+
+export const trackLead = (source: string = "newsletter") => {
+  const w = window as any;
+  if (w.gtag) w.gtag("event", "generate_lead", { method: source });
+  if (w.fbq) w.fbq("track", "Lead", { content_name: source });
+};
+
 const AnalyticsTracker = () => {
   const location = useLocation();
   const [gaId, setGaId] = useState<string | null>(null);
