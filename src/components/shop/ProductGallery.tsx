@@ -2,7 +2,8 @@ import { useState, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX, Maximize } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProductZoomViewer from "./ProductZoomViewer";
-import { isEmbedVideo, getEmbedUrl } from "@/lib/video-utils";
+import { isEmbedVideo, getEmbedUrl, optimizeVideoUrl } from "@/lib/video-utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ProductGalleryProps {
   mainImage: string;
@@ -28,6 +29,8 @@ const ProductGallery = ({ mainImage, images, videoUrl, productName, discount, ch
 
   const currentImage = allImages[selectedIndex] || mainImage;
   const isEmbed = videoUrl ? isEmbedVideo(videoUrl) : false;
+  const isMobile = useIsMobile();
+  const optimizedVideoUrl = videoUrl && !isEmbed ? optimizeVideoUrl(videoUrl, { mobile: isMobile }) : videoUrl;
 
   const goNext = () => setSelectedIndex((i) => (i + 1) % allImages.length);
   const goPrev = () => setSelectedIndex((i) => (i - 1 + allImages.length) % allImages.length);
@@ -143,11 +146,15 @@ const ProductGallery = ({ mainImage, images, videoUrl, productName, discount, ch
       >
         <video
           ref={videoRef}
-          src={videoUrl}
+          src={optimizedVideoUrl || undefined}
+          poster={mainImage}
           muted={isMuted}
           loop
           playsInline
+          preload="auto"
+          {...({ "webkit-playsinline": "true", "x5-playsinline": "true" } as any)}
           className="w-full h-full object-contain"
+          onLoadedMetadata={() => setVideoLoading(false)}
           onCanPlay={() => setVideoLoading(false)}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
