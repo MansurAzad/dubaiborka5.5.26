@@ -146,11 +146,17 @@ const ProductGallery = ({ mainImage, images, videoUrl, productName, discount, ch
       >
         <video
           ref={videoRef}
-          src={videoUrl}
+          src={optimizedVideoUrl || undefined}
+          poster={mainImage}
           muted={isMuted}
           loop
           playsInline
+          preload="auto"
+          // @ts-expect-error - non-standard attrs improve iOS Safari inline playback
+          webkit-playsinline="true"
+          x5-playsinline="true"
           className="w-full h-full object-contain"
+          onLoadedMetadata={() => setVideoLoading(false)}
           onCanPlay={() => setVideoLoading(false)}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
