@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { trackPurchase } from "@/components/seo/AnalyticsTracker";
+import { trackPurchase, trackInitiateCheckout } from "@/components/seo/AnalyticsTracker";
 import { motion } from "framer-motion";
 import { CreditCard, Truck, Shield, CheckCircle, ArrowLeft, User, FileText, Download, Smartphone, Banknote, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -110,6 +110,22 @@ const Checkout = () => {
     if (zoneManuallySelected || !shippingInfo.city || deliveryZones.length === 0) return;
     setSelectedZone(findMatchingZone(shippingInfo.city));
   }, [shippingInfo.city, deliveryZones, zoneManuallySelected, findMatchingZone]);
+
+  // Fire InitiateCheckout once when the user lands on checkout with a non-empty cart
+  const [checkoutTracked, setCheckoutTracked] = useState(false);
+  useEffect(() => {
+    if (checkoutTracked || items.length === 0 || total <= 0) return;
+    trackInitiateCheckout(
+      total,
+      items.map((i: any) => ({
+        id: i.product_id || i.id,
+        name: i.product?.name || i.name || "Product",
+        price: Number(i.product?.sale_price || i.product?.price || i.price || 0),
+        quantity: i.quantity,
+      }))
+    );
+    setCheckoutTracked(true);
+  }, [items, total, checkoutTracked]);
 
   const validateShippingInfo = () => {
     if (!shippingInfo.fullName || !shippingInfo.phone || !shippingInfo.address) {
