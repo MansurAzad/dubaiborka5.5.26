@@ -86,18 +86,6 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      gcTime: 15 * 60 * 1000,
-      refetchOnWindowFocus: false,
-      retry: 1,
-      refetchOnMount: false,
-    },
-  },
-});
-
 const CartSidebarWrapper = () => {
   const { cartOpen, closeCart } = useCart();
   return <FloatingCartSidebar open={cartOpen} onClose={closeCart} />;
