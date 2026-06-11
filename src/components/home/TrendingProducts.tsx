@@ -1,9 +1,8 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { TrendingUp, Star } from "lucide-react";
 import { type Product, getProductImage } from "@/types/product";
+import { useFeaturedProducts } from "@/hooks/useFeaturedProducts";
 import {
   useImageRotationTick,
   useShuffleSeed,
@@ -12,18 +11,7 @@ import {
 } from "@/hooks/useProductRotation";
 
 const TrendingProducts = () => {
-  const { data: products = [] } = useQuery<Product[]>({
-    queryKey: ["trending-products"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("id, name, price, sale_price, image_url, category, slug, sizes, colors, stock, material, description, video_url")
-        .eq("featured", true)
-        .limit(12);
-      return data || [];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: products = [] } = useFeaturedProducts();
 
   const tick = useImageRotationTick();
   const shuffleSeed = useShuffleSeed();

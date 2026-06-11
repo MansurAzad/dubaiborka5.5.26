@@ -1,12 +1,12 @@
-import { useEffect, useState, memo, useMemo } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { Heart, ShoppingBag } from "lucide-react";
 import StockBadge from "@/components/shop/StockBadge";
-import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { type Product, getProductImage } from "@/types/product";
+import { useFeaturedProducts } from "@/hooks/useFeaturedProducts";
 import {
   useImageRotationTick,
   useShuffleSeed,
@@ -91,33 +91,13 @@ const ProductCard = memo(({ product, index, isInWishlist, toggleWishlist, onAddT
 ProductCard.displayName = "ProductCard";
 
 const FeaturedProducts = ({ sectionData }: FeaturedProductsProps) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: products = [], isLoading: loading } = useFeaturedProducts();
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const navigate = useNavigate();
 
   const heading = sectionData?.title || "Featured Products";
   const subheading = sectionData?.subtitle || "Handpicked For You";
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("products")
-          .select("id, name, price, sale_price, image_url, category, sizes, colors, slug, stock, material, description, video_url")
-          .eq("featured", true)
-          .limit(12);
-        if (error) throw error;
-        setProducts(data || []);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
 
   const tick = useImageRotationTick();
   const shuffleSeed = useShuffleSeed();
