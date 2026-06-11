@@ -407,56 +407,64 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(400, { error: orderItemsError.message || "অর্ডারের পণ্য সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।" });
   }
 
+  // Fire all stock + profile + coupon updates in parallel
+  const updatePromises: Promise<unknown>[] = [];
   for (const item of computedItems) {
     if (item.productStock !== null) {
-      const { error: productStockError } = await supabaseAdmin
-        .from("products")
-        .update({ stock: Math.max(item.productStock - item.quantity, 0) })
-        .eq("id", item.product_id);
-
-      if (productStockError) {
-        console.error("Product stock sync failed:", productStockError);
-      }
+      updatePromises.push(
+        supabaseAdmin
+          .from("products")
+          .update({ stock: Math.max(item.productStock - item.quantity, 0) })
+          .eq("id", item.product_id)
+          .then(({ error }) => {
+            if (error) console.error("Product stock sync failed:", error);
+          }),
+      );
     }
-
     if (item.matchedVariant) {
-      const { error: variantStockError } = await supabaseAdmin
-        .from("product_variants")
-        .update({ stock: Math.max(item.matchedVariant.stock - item.quantity, 0) })
-        .eq("id", item.matchedVariant.id);
-
-      if (variantStockError) {
-        console.error("Variant stock sync failed:", variantStockError);
-      }
+      updatePromises.push(
+        supabaseAdmin
+          .from("product_variants")
+          .update({ stock: Math.max(item.matchedVariant.stock - item.quantity, 0) })
+          .eq("id", item.matchedVariant.id)
+          .then(({ error }) => {
+            if (error) console.error("Variant stock sync failed:", error);
+          }),
+      );
     }
   }
 
   if (authUser) {
-    const { error: profileUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        full_name: shippingInfo.fullName.trim(),
-        phone: normalizedPhone,
-        address: shippingInfo.address.trim(),
-        city: shippingCity,
-      })
-      .eq("user_id", authUser.id);
-
-    if (profileUpdateError) {
-      console.error("Profile update failed:", profileUpdateError);
-    }
+    updatePromises.push(
+      supabaseAdmin
+        .from("profiles")
+        .update({
+          full_name: shippingInfo.fullName.trim(),
+          phone: normalizedPhone,
+          address: shippingInfo.address.trim(),
+          city: shippingCity,
+        })
+        .eq("user_id", authUser.id)
+        .then(({ error }) => {
+          if (error) console.error("Profile update failed:", error);
+        }),
+    );
   }
 
   if (couponId && couponUsageCount !== null) {
-    const { error: couponUpdateError } = await supabaseAdmin
-      .from("coupons")
-      .update({ current_uses: couponUsageCount + 1 })
-      .eq("id", couponId);
-
-    if (couponUpdateError) {
-      console.error("Coupon usage update failed:", couponUpdateError);
-    }
+    updatePromises.push(
+      supabaseAdmin
+        .from("coupons")
+        .update({ current_uses: couponUsageCount + 1 })
+        .eq("id", couponId)
+        .then(({ error }) => {
+          if (error) console.error("Coupon usage update failed:", error);
+        }),
+    );
   }
+
+  await Promise.all(updatePromises);
+
 
   return jsonResponse(200, {
     success: true,
