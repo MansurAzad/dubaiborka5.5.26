@@ -136,13 +136,12 @@ export const placeOrder = async ({
   }
 
   if (data.notification?.email) {
-    try {
-      await supabase.functions.invoke("send-order-notification", {
-        body: data.notification,
+    // Fire-and-forget: don't block the user on email delivery
+    void supabase.functions
+      .invoke("send-order-notification", { body: data.notification })
+      .catch((notificationError) => {
+        console.error("Order notification error:", notificationError);
       });
-    } catch (notificationError) {
-      console.error("Order notification error:", notificationError);
-    }
   }
 
   return data;

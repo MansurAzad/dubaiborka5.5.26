@@ -169,70 +169,70 @@ serve(async (req: Request): Promise<Response> => {
   const normalizedPhone = shippingInfo.phone.trim();
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const productIds = [...new Set(items.map((item) => item.product_id))];
 
-  const { data: recentOrders, error: recentOrdersError } = await supabaseAdmin
-    .from("orders")
-    .select("id")
-    .eq("shipping_phone", normalizedPhone)
-    .gt("created_at", tenMinutesAgo)
-    .limit(1);
+  // Run independent lookups in parallel — biggest speed win
+  const [recentOrdersRes, dailyOrdersRes, zoneRes, productsRes, variantsRes] = await Promise.all([
+    supabaseAdmin
+      .from("orders")
+      .select("id")
+      .eq("shipping_phone", normalizedPhone)
+      .gt("created_at", tenMinutesAgo)
+      .limit(1),
+    supabaseAdmin
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("shipping_phone", normalizedPhone)
+      .gt("created_at", twentyFourHoursAgo),
+    selectedZoneId
+      ? supabaseAdmin
+          .from("delivery_zones")
+          .select("id, city, shipping_charge")
+          .eq("id", selectedZoneId)
+          .eq("is_active", true)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null } as { data: { id: string; city: string; shipping_charge: number } | null; error: null }),
+    supabaseAdmin
+      .from("products")
+      .select("id, name, price, sale_price, stock")
+      .in("id", productIds),
+    supabaseAdmin
+      .from("product_variants")
+      .select("id, product_id, size, color, stock, price_adjustment")
+      .in("product_id", productIds),
+  ]);
 
-  if (recentOrdersError) {
-    console.error("Rate limit lookup failed:", recentOrdersError);
+  if (recentOrdersRes.error) {
+    console.error("Rate limit lookup failed:", recentOrdersRes.error);
     return jsonResponse(500, { error: "অর্ডার যাচাই করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।" });
   }
-
-  if ((recentOrders || []).length > 0) {
+  if ((recentOrdersRes.data || []).length > 0) {
     return jsonResponse(400, { error: "আপনি ১০ মিনিটের মধ্যে আবার অর্ডার দিতে পারবেন না। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন।" });
   }
 
-  const { count: ordersLastDay, error: dailyOrdersError } = await supabaseAdmin
-    .from("orders")
-    .select("id", { count: "exact", head: true })
-    .eq("shipping_phone", normalizedPhone)
-    .gt("created_at", twentyFourHoursAgo);
-
-  if (dailyOrdersError) {
-    console.error("Daily rate limit lookup failed:", dailyOrdersError);
+  if (dailyOrdersRes.error) {
+    console.error("Daily rate limit lookup failed:", dailyOrdersRes.error);
     return jsonResponse(500, { error: "অর্ডার যাচাই করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।" });
   }
-
-  if ((ordersLastDay || 0) >= 3) {
+  if ((dailyOrdersRes.count || 0) >= 3) {
     return jsonResponse(400, { error: "২৪ ঘণ্টায় সর্বোচ্চ ৩টি অর্ডার দেওয়া যায়। অনুগ্রহ করে পরে চেষ্টা করুন।" });
   }
 
   let selectedZone: { id: string; city: string; shipping_charge: number } | null = null;
   if (selectedZoneId) {
-    const { data: zoneData, error: zoneError } = await supabaseAdmin
-      .from("delivery_zones")
-      .select("id, city, shipping_charge")
-      .eq("id", selectedZoneId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (zoneError || !zoneData) {
+    if (zoneRes.error || !zoneRes.data) {
       return jsonResponse(400, { error: "নির্বাচিত ডেলিভারি জোনটি আর সক্রিয় নেই। অনুগ্রহ করে আবার নির্বাচন করুন।" });
     }
-
-    selectedZone = zoneData;
+    selectedZone = zoneRes.data as { id: string; city: string; shipping_charge: number };
   }
 
-  const productIds = [...new Set(items.map((item) => item.product_id))];
-  const { data: products, error: productsError } = await supabaseAdmin
-    .from("products")
-    .select("id, name, price, sale_price, stock")
-    .in("id", productIds);
-
+  const { data: products, error: productsError } = productsRes;
   if (productsError || !products) {
     console.error("Product lookup failed:", productsError);
     return jsonResponse(500, { error: "পণ্যের তথ্য যাচাই করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।" });
   }
 
-  const { data: variants, error: variantsError } = await supabaseAdmin
-    .from("product_variants")
-    .select("id, product_id, size, color, stock, price_adjustment")
-    .in("product_id", productIds);
-
+  const { data: variants, error: variantsError } = variantsRes;
   if (variantsError) {
     console.error("Variant lookup failed:", variantsError);
     return jsonResponse(500, { error: "পণ্যের ভ্যারিয়েন্ট যাচাই করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।" });
@@ -407,56 +407,64 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(400, { error: orderItemsError.message || "অর্ডারের পণ্য সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।" });
   }
 
+  // Fire all stock + profile + coupon updates in parallel
+  const updatePromises: Promise<unknown>[] = [];
   for (const item of computedItems) {
     if (item.productStock !== null) {
-      const { error: productStockError } = await supabaseAdmin
-        .from("products")
-        .update({ stock: Math.max(item.productStock - item.quantity, 0) })
-        .eq("id", item.product_id);
-
-      if (productStockError) {
-        console.error("Product stock sync failed:", productStockError);
-      }
+      updatePromises.push(
+        supabaseAdmin
+          .from("products")
+          .update({ stock: Math.max(item.productStock - item.quantity, 0) })
+          .eq("id", item.product_id)
+          .then(({ error }) => {
+            if (error) console.error("Product stock sync failed:", error);
+          }),
+      );
     }
-
     if (item.matchedVariant) {
-      const { error: variantStockError } = await supabaseAdmin
-        .from("product_variants")
-        .update({ stock: Math.max(item.matchedVariant.stock - item.quantity, 0) })
-        .eq("id", item.matchedVariant.id);
-
-      if (variantStockError) {
-        console.error("Variant stock sync failed:", variantStockError);
-      }
+      updatePromises.push(
+        supabaseAdmin
+          .from("product_variants")
+          .update({ stock: Math.max(item.matchedVariant.stock - item.quantity, 0) })
+          .eq("id", item.matchedVariant.id)
+          .then(({ error }) => {
+            if (error) console.error("Variant stock sync failed:", error);
+          }),
+      );
     }
   }
 
   if (authUser) {
-    const { error: profileUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        full_name: shippingInfo.fullName.trim(),
-        phone: normalizedPhone,
-        address: shippingInfo.address.trim(),
-        city: shippingCity,
-      })
-      .eq("user_id", authUser.id);
-
-    if (profileUpdateError) {
-      console.error("Profile update failed:", profileUpdateError);
-    }
+    updatePromises.push(
+      supabaseAdmin
+        .from("profiles")
+        .update({
+          full_name: shippingInfo.fullName.trim(),
+          phone: normalizedPhone,
+          address: shippingInfo.address.trim(),
+          city: shippingCity,
+        })
+        .eq("user_id", authUser.id)
+        .then(({ error }) => {
+          if (error) console.error("Profile update failed:", error);
+        }),
+    );
   }
 
   if (couponId && couponUsageCount !== null) {
-    const { error: couponUpdateError } = await supabaseAdmin
-      .from("coupons")
-      .update({ current_uses: couponUsageCount + 1 })
-      .eq("id", couponId);
-
-    if (couponUpdateError) {
-      console.error("Coupon usage update failed:", couponUpdateError);
-    }
+    updatePromises.push(
+      supabaseAdmin
+        .from("coupons")
+        .update({ current_uses: couponUsageCount + 1 })
+        .eq("id", couponId)
+        .then(({ error }) => {
+          if (error) console.error("Coupon usage update failed:", error);
+        }),
+    );
   }
+
+  await Promise.all(updatePromises);
+
 
   return jsonResponse(200, {
     success: true,
