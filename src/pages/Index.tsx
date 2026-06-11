@@ -9,7 +9,8 @@ import { useHomepageSections } from "@/hooks/useHomepageSections";
 
 // Lazy load below-the-fold sections
 const FeaturedCategories = lazy(() => import("@/components/home/FeaturedCategories"));
-const FeaturedProducts = lazy(() => import("@/components/home/FeaturedProducts"));
+// Eager — above-the-fold critical content so products render immediately
+import FeaturedProducts from "@/components/home/FeaturedProducts";
 const SpecialOffer = lazy(() => import("@/components/home/SpecialOffer"));
 const AboutSection = lazy(() => import("@/components/home/AboutSection"));
 const WhyChooseUs = lazy(() => import("@/components/home/WhyChooseUs"));
