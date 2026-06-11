@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -11,6 +11,12 @@ import AnalyticsTracker from "@/components/seo/AnalyticsTracker";
 import ScrollToTop from "@/components/seo/ScrollToTop";
 import FloatingCartSidebar from "@/components/cart/FloatingCartSidebar";
 import { useCart } from "@/contexts/CartContext";
+import { queryClient } from "@/lib/query-client";
+import { prefetchFeaturedProducts } from "@/hooks/useFeaturedProducts";
+
+// Kick off the products fetch at JS-parse time, BEFORE React mounts.
+// By the time the homepage section renders, data is usually already cached.
+prefetchFeaturedProducts();
 
 
 // Eager load: Index (landing page)
