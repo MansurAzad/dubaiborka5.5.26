@@ -72,10 +72,8 @@ const createEmptyVariant = (): VariantRow => ({
 });
 
 // ============ CONSTANTS ============
-const CATEGORIES = [
-  "Borkas", "Abayas", "Hijabs", "Kaftans", "Scarves", "Fabrics",
-  "Niqab", "Accessories", "Gift Sets", "Prayer Dress", "Kids Collection",
-];
+// NOTE: Categories are sourced from the `categories` table (Categories admin page)
+// so Bulk Add stays in sync with what's managed there. No hardcoded list.
 const COMMON_SIZES = ['50"', '52"', '54"', '56"', '58"', '60"', "S", "M", "L", "XL", "XXL", "Free Size"];
 const COMMON_COLORS = ["Black", "White", "Navy", "Maroon", "Grey", "Beige", "Brown", "Red", "Green", "Blue", "Purple", "Pink"];
 const COMMON_MATERIALS = ["Nida", "Zoom", "Jorjet", "Chiffon", "Silk", "Cotton", "Linen", "Crepe", "Satin"];
