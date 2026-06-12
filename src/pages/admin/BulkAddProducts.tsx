@@ -707,7 +707,7 @@ const BulkAddProducts = () => {
           <div className="grid grid-cols-3 gap-2">
             <Select value={product.category} onValueChange={v => updateFn(product.id, "category", v)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="ক্যাটাগরি" /></SelectTrigger>
-              <SelectContent>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              <CategorySelectContent items={allCategories} />
             </Select>
             <Input className="h-8 text-xs" type="number" placeholder="মূল্য" value={product.price || ""}
               onChange={e => updateFn(product.id, "price", Number(e.target.value))} />
@@ -749,7 +749,7 @@ const BulkAddProducts = () => {
             <Label className="text-xs">ক্যাটাগরি *</Label>
             <Select value={product.category} onValueChange={v => updateFn(product.id, "category", v)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="সিলেক্ট" /></SelectTrigger>
-              <SelectContent>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              <CategorySelectContent items={allCategories} />
             </Select>
           </div>
           <div className="col-span-1">
@@ -947,7 +947,7 @@ const BulkAddProducts = () => {
                     <Label className="text-xs">ক্যাটাগরি</Label>
                     <Select value={templateCategory} onValueChange={setTemplateCategory}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="সিলেক্ট" /></SelectTrigger>
-                      <SelectContent>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                      <CategorySelectContent items={allCategories} />
                     </Select>
                   </div>
                   <div>
