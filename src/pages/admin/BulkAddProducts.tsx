@@ -213,19 +213,30 @@ const BulkAddProducts = () => {
   const [templateStock, setTemplateStock] = useState("");
   const [templatePrice, setTemplatePrice] = useState("");
 
-  // Fetch categories
-  const { data: dbCategories = [] } = useQuery({
+  // Fetch categories (single source of truth = Categories admin page)
+  const { data: dbCategories = [], isLoading: catsLoading, refetch: refetchCategories } = useQuery({
     queryKey: ["bulk-add-categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("name").eq("is_active", true);
-      return (data || []).map(c => c.name);
+      const { data, error } = await supabase
+        .from("categories")
+        .select("name, display_order")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return (data || []).map(c => (c.name || "").trim()).filter(Boolean);
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const allCategories = useMemo(() => {
-    const merged = new Set([...CATEGORIES, ...dbCategories]);
-    return Array.from(merged).sort();
+    // Deduplicate while preserving DB order
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of dbCategories) {
+      const k = c.toLowerCase();
+      if (!seen.has(k) && c) { seen.add(k); out.push(c); }
+    }
+    return out;
   }, [dbCategories]);
 
   // Existing products for multi-field duplicate check
