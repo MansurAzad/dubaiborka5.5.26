@@ -72,10 +72,8 @@ const createEmptyVariant = (): VariantRow => ({
 });
 
 // ============ CONSTANTS ============
-const CATEGORIES = [
-  "Borkas", "Abayas", "Hijabs", "Kaftans", "Scarves", "Fabrics",
-  "Niqab", "Accessories", "Gift Sets", "Prayer Dress", "Kids Collection",
-];
+// NOTE: Categories are sourced from the `categories` table (Categories admin page)
+// so Bulk Add stays in sync with what's managed there. No hardcoded list.
 const COMMON_SIZES = ['50"', '52"', '54"', '56"', '58"', '60"', "S", "M", "L", "XL", "XXL", "Free Size"];
 const COMMON_COLORS = ["Black", "White", "Navy", "Maroon", "Grey", "Beige", "Brown", "Red", "Green", "Blue", "Purple", "Pink"];
 const COMMON_MATERIALS = ["Nida", "Zoom", "Jorjet", "Chiffon", "Silk", "Cotton", "Linen", "Crepe", "Satin"];
@@ -100,6 +98,26 @@ const parseCSVLine = (line: string): string[] => {
   }
   result.push(current.trim());
   return result;
+};
+
+// ============ SAFE CATEGORY DROPDOWN (prevents Radix crash on empty values) ============
+const CategorySelectContent = ({ items }: { items: string[] }) => {
+  const safe = items.filter(c => typeof c === "string" && c.trim().length > 0);
+  if (!safe.length) {
+    return (
+      <SelectContent>
+        <div className="px-3 py-3 text-xs text-muted-foreground">
+          কোনো ক্যাটাগরি পাওয়া যায়নি।{" "}
+          <a href="/admin/categories" className="text-primary underline">যোগ করুন</a>
+        </div>
+      </SelectContent>
+    );
+  }
+  return (
+    <SelectContent className="max-h-72">
+      {safe.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+    </SelectContent>
+  );
 };
 
 // ============ INLINE IMAGE UPLOAD COMPONENT ============
@@ -215,19 +233,30 @@ const BulkAddProducts = () => {
   const [templateStock, setTemplateStock] = useState("");
   const [templatePrice, setTemplatePrice] = useState("");
 
-  // Fetch categories
-  const { data: dbCategories = [] } = useQuery({
+  // Fetch categories (single source of truth = Categories admin page)
+  const { data: dbCategories = [], isLoading: catsLoading, refetch: refetchCategories } = useQuery({
     queryKey: ["bulk-add-categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("name").eq("is_active", true);
-      return (data || []).map(c => c.name);
+      const { data, error } = await supabase
+        .from("categories")
+        .select("name, display_order")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return (data || []).map(c => (c.name || "").trim()).filter(Boolean);
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const allCategories = useMemo(() => {
-    const merged = new Set([...CATEGORIES, ...dbCategories]);
-    return Array.from(merged).sort();
+    // Deduplicate while preserving DB order
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of dbCategories) {
+      const k = c.toLowerCase();
+      if (!seen.has(k) && c) { seen.add(k); out.push(c); }
+    }
+    return out;
   }, [dbCategories]);
 
   // Existing products for multi-field duplicate check
@@ -678,7 +707,7 @@ const BulkAddProducts = () => {
           <div className="grid grid-cols-3 gap-2">
             <Select value={product.category} onValueChange={v => updateFn(product.id, "category", v)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="ক্যাটাগরি" /></SelectTrigger>
-              <SelectContent>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              <CategorySelectContent items={allCategories} />
             </Select>
             <Input className="h-8 text-xs" type="number" placeholder="মূল্য" value={product.price || ""}
               onChange={e => updateFn(product.id, "price", Number(e.target.value))} />
@@ -720,7 +749,7 @@ const BulkAddProducts = () => {
             <Label className="text-xs">ক্যাটাগরি *</Label>
             <Select value={product.category} onValueChange={v => updateFn(product.id, "category", v)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="সিলেক্ট" /></SelectTrigger>
-              <SelectContent>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              <CategorySelectContent items={allCategories} />
             </Select>
           </div>
           <div className="col-span-1">
@@ -918,7 +947,7 @@ const BulkAddProducts = () => {
                     <Label className="text-xs">ক্যাটাগরি</Label>
                     <Select value={templateCategory} onValueChange={setTemplateCategory}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="সিলেক্ট" /></SelectTrigger>
-                      <SelectContent>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                      <CategorySelectContent items={allCategories} />
                     </Select>
                   </div>
                   <div>
