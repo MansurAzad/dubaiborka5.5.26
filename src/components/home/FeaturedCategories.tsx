@@ -1,24 +1,11 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { categoryImages, defaultFallbackImage } from "@/types/product";
+import { useActiveCategories } from "@/hooks/useCachedData";
 
 const FeaturedCategories = () => {
-  const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order");
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: categories = [] } = useActiveCategories();
 
   const getCategoryImage = (cat: any) => {
     if (cat.image_url) return cat.image_url;
