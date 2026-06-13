@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Gift, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useActiveCoupons, type PublicCoupon } from "@/hooks/useCachedData";
 
 interface ExitIntentPopupProps {
   sectionData?: {
@@ -13,43 +13,21 @@ interface ExitIntentPopupProps {
   };
 }
 
-interface PopupCoupon {
-  code: string;
-  description: string | null;
-  discount_type: string;
-  discount_value: number;
-  current_uses: number;
-  max_uses: number | null;
-  valid_from: string | null;
-  valid_until: string | null;
-}
+type PopupCoupon = PublicCoupon;
 
 const ExitIntentPopup = ({ sectionData }: ExitIntentPopupProps) => {
   const [show, setShow] = useState(false);
-  const [activeCoupon, setActiveCoupon] = useState<PopupCoupon | null>(null);
+  const { data: coupons = [] } = useActiveCoupons();
 
-  useEffect(() => {
-    const fetchActiveCoupon = async () => {
-      const { data } = await supabase
-        .from("coupons")
-        .select("code, description, discount_type, discount_value, current_uses, max_uses, valid_from, valid_until")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      const now = new Date();
-      const validCoupon = (data || []).find((coupon) => {
-        const startsOk = !coupon.valid_from || new Date(coupon.valid_from) <= now;
-        const endsOk = !coupon.valid_until || new Date(coupon.valid_until) >= now;
-        const usesOk = !coupon.max_uses || coupon.current_uses < coupon.max_uses;
-        return startsOk && endsOk && usesOk;
-      });
-
-      setActiveCoupon(validCoupon || null);
-    };
-
-    void fetchActiveCoupon();
-  }, []);
+  const activeCoupon: PopupCoupon | null = useMemo(() => {
+    const now = new Date();
+    return coupons.find((coupon) => {
+      const startsOk = !coupon.valid_from || new Date(coupon.valid_from) <= now;
+      const endsOk = !coupon.valid_until || new Date(coupon.valid_until) >= now;
+      const usesOk = !coupon.max_uses || coupon.current_uses < coupon.max_uses;
+      return startsOk && endsOk && usesOk;
+    }) || null;
+  }, [coupons]);
 
   const couponLabel = activeCoupon
     ? activeCoupon.description || (activeCoupon.discount_type === "percentage"
