@@ -1,64 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, MapPin } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useSocialProofMessages, type SocialProofItem } from "@/hooks/useCachedData";
 
-interface NotificationData {
-  product_name: string;
-  city: string;
-  time_ago: string;
-  message: string;
-}
+type NotificationData = SocialProofItem;
 
 const SocialProofNotification = () => {
   const [visible, setVisible] = useState(false);
   const [notification, setNotification] = useState<NotificationData | null>(null);
-  const [items, setItems] = useState<NotificationData[]>([]);
-
-  useEffect(() => {
-    const fetchMessages = async () => {
-      // First try custom messages from admin
-      const { data: custom } = await supabase
-        .from("social_proof_messages")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order");
-
-      if (custom && custom.length > 0) {
-        setItems(custom.map((m: any) => ({
-          product_name: m.product_name,
-          city: m.city,
-          time_ago: m.time_ago,
-          message: m.message,
-        })));
-        return;
-      }
-
-      // Fallback to real orders
-      const { data } = await supabase
-        .from("orders")
-        .select("shipping_city, created_at, order_items(product_name)")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (data && data.length > 0) {
-        const mapped = data
-          .filter((o: any) => o.order_items?.length > 0)
-          .map((o: any) => {
-            const mins = Math.floor((Date.now() - new Date(o.created_at).getTime()) / 60000);
-            const time_ago = mins < 60 ? `${mins} মিনিট আগে` : mins < 1440 ? `${Math.floor(mins / 60)} ঘণ্টা আগে` : `${Math.floor(mins / 1440)} দিন আগে`;
-            return {
-              product_name: o.order_items[0].product_name,
-              city: o.shipping_city,
-              time_ago,
-              message: "কেউ একজন {product} কিনেছেন!",
-            };
-          });
-        setItems(mapped);
-      }
-    };
-    fetchMessages();
-  }, []);
+  const { data: items = [] } = useSocialProofMessages();
 
   useEffect(() => {
     if (items.length === 0) return;

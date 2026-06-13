@@ -1,7 +1,7 @@
 import { useState, useEffect, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Gift, Copy, Check, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useActiveCoupons } from "@/hooks/useCachedData";
 
 interface PopupSectionData {
   title: string | null;
@@ -41,38 +41,30 @@ const SpinToWinWheel = forwardRef<HTMLDivElement, { sectionData?: PopupSectionDa
   const [hasSpun, setHasSpun] = useState(() => localStorage.getItem("spinUsed") === "true");
   const [segments, setSegments] = useState<Segment[]>(FALLBACK_SEGMENTS);
   const [loading, setLoading] = useState(true);
+  const { data: cachedCoupons } = useActiveCoupons();
 
-  // Only fetch coupons when wheel is opened, not on mount
+  // Build wheel from cached coupons (shared with ExitIntentPopup) when opened.
   useEffect(() => {
     if (!showWheel || segments !== FALLBACK_SEGMENTS) return;
-    const fetchCoupons = async () => {
-      const { data } = await supabase
-        .from("coupons")
-        .select("code, discount_type, discount_value, description, valid_from, valid_until, current_uses, max_uses")
-        .eq("is_active", true)
-        .limit(10);
+    const now = new Date();
+    const eligibleCoupons = (cachedCoupons || []).filter((coupon) => {
+      const startsOk = !coupon.valid_from || new Date(coupon.valid_from) <= now;
+      const endsOk = !coupon.valid_until || new Date(coupon.valid_until) >= now;
+      const usesOk = !coupon.max_uses || coupon.current_uses < coupon.max_uses;
+      return startsOk && endsOk && usesOk;
+    }).slice(0, 5);
 
-      const now = new Date();
-      const eligibleCoupons = (data || []).filter((coupon) => {
-        const startsOk = !coupon.valid_from || new Date(coupon.valid_from) <= now;
-        const endsOk = !coupon.valid_until || new Date(coupon.valid_until) >= now;
-        const usesOk = !coupon.max_uses || coupon.current_uses < coupon.max_uses;
-        return startsOk && endsOk && usesOk;
-      }).slice(0, 5);
-
-      if (eligibleCoupons.length > 0) {
-        const dbSegments: Segment[] = eligibleCoupons.map((c, i) => ({
-          label: c.description || (c.discount_type === "percentage" ? `${c.discount_value}% ছাড়` : `৳${c.discount_value} ছাড়`),
-          code: c.code,
-          color: COLORS[i % COLORS.length],
-        }));
-        dbSegments.push({ label: "পরে চেষ্টা করুন", code: "", color: "hsl(var(--muted))" });
-        setSegments(dbSegments);
-      }
-      setLoading(false);
-    };
-    fetchCoupons();
-  }, [showWheel]);
+    if (eligibleCoupons.length > 0) {
+      const dbSegments: Segment[] = eligibleCoupons.map((c, i) => ({
+        label: c.description || (c.discount_type === "percentage" ? `${c.discount_value}% ছাড়` : `৳${c.discount_value} ছাড়`),
+        code: c.code,
+        color: COLORS[i % COLORS.length],
+      }));
+      dbSegments.push({ label: "পরে চেষ্টা করুন", code: "", color: "hsl(var(--muted))" });
+      setSegments(dbSegments);
+    }
+    setLoading(false);
+  }, [showWheel, cachedCoupons, segments]);
 
   const spin = () => {
     if (spinning || hasSpun) return;

@@ -1,25 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { useActiveCategories } from "@/hooks/useCachedData";
 
 const PopularCategoriesCarousel = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ["popular-categories-carousel"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order", { ascending: true });
-      return data || [];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: categories = [] } = useActiveCategories();
 
   const scroll = (dir: "left" | "right") => {
     if (!scrollRef.current) return;
