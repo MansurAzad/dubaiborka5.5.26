@@ -1,9 +1,18 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { serverTrack, type ServerTrackUserData } from "@/lib/server-tracking";
 
-// Global tracking helpers
-export const trackAddToCart = (product: { id: string; name: string; price: number; category: string }, quantity: number) => {
+// Generate dedup event_id shared between browser pixel and server CAPI
+const eid = (name: string) =>
+  `${name}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+// Global tracking helpers — fire BOTH browser pixel (gtag/fbq) and server-side (CAPI/MP)
+export const trackAddToCart = (
+  product: { id: string; name: string; price: number; category: string },
+  quantity: number,
+) => {
+  const event_id = eid("add_to_cart");
   const w = window as any;
   if (w.gtag) {
     w.gtag("event", "add_to_cart", {
@@ -19,11 +28,29 @@ export const trackAddToCart = (product: { id: string; name: string; price: numbe
       content_type: "product",
       value: product.price * quantity,
       currency: "BDT",
-    });
+    }, { eventID: event_id });
   }
+  serverTrack({
+    event_name: "add_to_cart",
+    event_id,
+    params: {
+      currency: "BDT",
+      value: product.price * quantity,
+      content_ids: [product.id],
+      content_name: product.name,
+      content_type: "product",
+      contents: [{ id: product.id, quantity, item_price: product.price }],
+    },
+  });
 };
 
-export const trackPurchase = (orderId: string, total: number, items: { id: string; name: string; price: number; quantity: number }[]) => {
+export const trackPurchase = (
+  orderId: string,
+  total: number,
+  items: { id: string; name: string; price: number; quantity: number }[],
+  userData?: ServerTrackUserData,
+) => {
+  const event_id = `purchase-${orderId}`;
   const w = window as any;
   if (w.gtag) {
     w.gtag("event", "purchase", {
@@ -40,11 +67,26 @@ export const trackPurchase = (orderId: string, total: number, items: { id: strin
       value: total,
       currency: "BDT",
       num_items: items.length,
-    });
+    }, { eventID: event_id });
   }
+  serverTrack({
+    event_name: "purchase",
+    event_id,
+    user_data: { ...userData, external_id: orderId },
+    params: {
+      currency: "BDT",
+      value: total,
+      transaction_id: orderId,
+      content_ids: items.map(i => i.id),
+      content_type: "product",
+      contents: items.map(i => ({ id: i.id, quantity: i.quantity, item_price: i.price })),
+      num_items: items.reduce((s, i) => s + i.quantity, 0),
+    },
+  });
 };
 
 export const trackViewContent = (product: { id: string; name: string; price: number; category: string }) => {
+  const event_id = eid("view_item");
   const w = window as any;
   if (w.gtag) {
     w.gtag("event", "view_item", {
@@ -60,11 +102,28 @@ export const trackViewContent = (product: { id: string; name: string; price: num
       content_type: "product",
       value: product.price,
       currency: "BDT",
-    });
+    }, { eventID: event_id });
   }
+  serverTrack({
+    event_name: "view_item",
+    event_id,
+    params: {
+      currency: "BDT",
+      value: product.price,
+      content_ids: [product.id],
+      content_name: product.name,
+      content_category: product.category,
+      content_type: "product",
+    },
+  });
 };
 
-export const trackInitiateCheckout = (total: number, items: { id: string; name: string; price: number; quantity: number }[]) => {
+export const trackInitiateCheckout = (
+  total: number,
+  items: { id: string; name: string; price: number; quantity: number }[],
+  userData?: ServerTrackUserData,
+) => {
+  const event_id = eid("begin_checkout");
   const w = window as any;
   if (w.gtag) {
     w.gtag("event", "begin_checkout", {
@@ -80,17 +139,33 @@ export const trackInitiateCheckout = (total: number, items: { id: string; name: 
       value: total,
       currency: "BDT",
       num_items: items.reduce((s, i) => s + i.quantity, 0),
-    });
+    }, { eventID: event_id });
   }
+  serverTrack({
+    event_name: "begin_checkout",
+    event_id,
+    user_data: userData,
+    params: {
+      currency: "BDT",
+      value: total,
+      content_ids: items.map(i => i.id),
+      content_type: "product",
+      contents: items.map(i => ({ id: i.id, quantity: i.quantity, item_price: i.price })),
+      num_items: items.reduce((s, i) => s + i.quantity, 0),
+    },
+  });
 };
 
 export const trackSearch = (query: string) => {
+  const event_id = eid("search");
   const w = window as any;
   if (w.gtag) w.gtag("event", "search", { search_term: query });
-  if (w.fbq) w.fbq("track", "Search", { search_string: query });
+  if (w.fbq) w.fbq("track", "Search", { search_string: query }, { eventID: event_id });
+  serverTrack({ event_name: "search", event_id, params: { search_string: query } });
 };
 
 export const trackAddToWishlist = (product: { id: string; name: string; price: number }) => {
+  const event_id = eid("add_to_wishlist");
   const w = window as any;
   if (w.gtag) {
     w.gtag("event", "add_to_wishlist", {
@@ -106,14 +181,27 @@ export const trackAddToWishlist = (product: { id: string; name: string; price: n
       content_type: "product",
       value: product.price,
       currency: "BDT",
-    });
+    }, { eventID: event_id });
   }
+  serverTrack({
+    event_name: "add_to_wishlist",
+    event_id,
+    params: {
+      currency: "BDT",
+      value: product.price,
+      content_ids: [product.id],
+      content_name: product.name,
+      content_type: "product",
+    },
+  });
 };
 
-export const trackLead = (source: string = "newsletter") => {
+export const trackLead = (source: string = "newsletter", userData?: ServerTrackUserData) => {
+  const event_id = eid("generate_lead");
   const w = window as any;
   if (w.gtag) w.gtag("event", "generate_lead", { method: source });
-  if (w.fbq) w.fbq("track", "Lead", { content_name: source });
+  if (w.fbq) w.fbq("track", "Lead", { content_name: source }, { eventID: event_id });
+  serverTrack({ event_name: "generate_lead", event_id, user_data: userData, params: { content_name: source } });
 };
 
 const AnalyticsTracker = () => {
@@ -161,12 +249,19 @@ const AnalyticsTracker = () => {
   }, [fbPixelId]);
 
   useEffect(() => {
+    const event_id = eid("page_view");
     if (gaId && (window as any).gtag) {
       (window as any).gtag("config", gaId, { page_path: location.pathname });
     }
     if (fbPixelId && (window as any).fbq) {
-      (window as any).fbq("track", "PageView");
+      (window as any).fbq("track", "PageView", {}, { eventID: event_id });
     }
+    // Server-side PageView (fires even when ad blockers strip pixel)
+    serverTrack({
+      event_name: "page_view",
+      event_id,
+      params: { page_path: location.pathname, page_location: window.location.href, page_title: document.title },
+    });
   }, [location.pathname, gaId, fbPixelId]);
 
   return null;
